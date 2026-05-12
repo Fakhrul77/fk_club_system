@@ -7,12 +7,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --umpsa-blue: #003B5C;
+            --umpsa-gold: #FDB813;
+            --umpsa-dark-blue: #002147;
+            --umpsa-light-blue: #E8F0F8;
+        }
         body {
-            background-image: url('../../assets/images/FK4.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            background: linear-gradient(135deg, var(--umpsa-blue) 0%, var(--umpsa-dark-blue) 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -20,21 +22,20 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .forgot-card {
-            background: rgba(255, 255, 255, 0.95);
+            background: white;
             border-radius: 20px;
             padding: 40px;
             width: 420px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             text-align: center;
-            backdrop-filter: blur(2px);
         }
         .icon {
             font-size: 60px;
-            color: #FF6B35;
+            color: var(--umpsa-gold);
             margin-bottom: 20px;
         }
         h2 {
-            color: #1E3A5F;
+            color: var(--umpsa-blue);
             margin-bottom: 15px;
         }
         .desc {
@@ -50,10 +51,15 @@
             border-radius: 8px;
             font-size: 14px;
         }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--umpsa-gold);
+            box-shadow: 0 0 0 3px rgba(253,184,19,0.1);
+        }
         .btn-send {
             width: 100%;
             padding: 12px;
-            background: #1E3A5F;
+            background: var(--umpsa-blue);
             color: white;
             border: none;
             border-radius: 8px;
@@ -62,16 +68,18 @@
             transition: all 0.3s;
         }
         .btn-send:hover {
-            background: #FF6B35;
+            background: var(--umpsa-gold);
+            color: var(--umpsa-dark-blue);
         }
         .back-link {
             margin-top: 20px;
             display: inline-block;
-            color: #FF6B35;
+            color: var(--umpsa-gold);
             text-decoration: none;
         }
         .back-link:hover {
             text-decoration: underline;
+            color: var(--umpsa-blue);
         }
         .success-message {
             background: #d4edda;
@@ -89,7 +97,9 @@
 </head>
 <body>
     <div class="forgot-card">
-        
+        <div class="icon">
+            <i class="fas fa-key"></i>
+        </div>
         <h2>Forgot Password?</h2>
         <div class="desc">Enter your registered email address and we'll send you a link to reset your password.</div>
         

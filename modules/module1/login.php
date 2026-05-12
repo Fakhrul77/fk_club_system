@@ -60,13 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - FK Club System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --umpsa-blue: #003B5C;
+            --umpsa-gold: #FDB813;
+            --umpsa-dark-blue: #002147;
+            --umpsa-light-blue: #E8F0F8;
+        }
         body {
-            background-image: url('../../assets/images/FK4.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            background: linear-gradient(135deg, var(--umpsa-blue) 0%, var(--umpsa-dark-blue) 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -74,16 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .login-card {
-            background: rgba(255, 255, 255, 0.95);
+            background: white;
             border-radius: 20px;
             padding: 40px;
             width: 420px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-            backdrop-filter: blur(2px);
         }
         h2 {
             text-align: center;
-            color: #1E3A5F;
+            color: var(--umpsa-blue);
             margin-bottom: 10px;
         }
         .subtitle {
@@ -102,13 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         .form-control:focus {
             outline: none;
-            border-color: #FF6B35;
-            box-shadow: 0 0 0 3px rgba(255,107,53,0.1);
+            border-color: var(--umpsa-gold);
+            box-shadow: 0 0 0 3px rgba(253,184,19,0.1);
         }
         .btn-login {
             width: 100%;
             padding: 12px;
-            background: #1E3A5F;
+            background: var(--umpsa-blue);
             color: white;
             border: none;
             border-radius: 8px;
@@ -117,7 +119,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transition: all 0.3s;
         }
         .btn-login:hover {
-            background: #FF6B35;
+            background: var(--umpsa-gold);
+            color: var(--umpsa-dark-blue);
         }
         .error {
             background: #f8d7da;
@@ -127,8 +130,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-bottom: 20px;
             text-align: center;
         }
+        .forgot-password {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .forgot-password a {
+            color: var(--umpsa-gold);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .forgot-password a:hover {
+            text-decoration: underline;
+            color: var(--umpsa-blue);
+        }
         .demo-box {
-            background: #e8f4f8;
+            background: var(--umpsa-light-blue);
             padding: 15px;
             border-radius: 8px;
             margin-top: 20px;
@@ -145,18 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             align-items: center;
             gap: 10px;
         }
-        .forgot-password {
-            text-align: right;
-            margin-bottom: 20px;
-        }
-        .forgot-password a {
-            color: #FF6B35;
-            text-decoration: none;
-            font-size: 13px;
-        }
-        .forgot-password a:hover {
-            text-decoration: underline;
-        }
         hr {
             margin: 20px 0;
             border-color: #eee;
@@ -165,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 <body>
     <div class="login-card">
-        <h2>FK Club System</h2>
+        <h2>🏛️ FK Club System</h2>
         <div class="subtitle">Student Club & Event Management System</div>
         
         <div class="info-alert">
@@ -185,16 +189,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <a href="forgot_password.php">Forgot Password?</a>
             </div>
             
-            <button type="submit" class="btn-login">Login</button>
+            <button type="submit" class="btn-login">🔐 Login</button>
         </form>
         
         <hr>
         
         <div class="demo-box">
-            <strong>Demo Credentials:</strong><br>
-             Admin: admin@fk.umpsa.edu.my / password123<br>
-             Committee: sarah@student.umpsa.edu.my / password123<br>
-             Student: ahmad@student.umpsa.edu.my / password123
+            <strong>📋 Demo Credentials:</strong><br>
+            👑 Admin: admin@fk.umpsa.edu.my / password123<br>
+            📋 Committee: sarah@student.umpsa.edu.my / password123<br>
+            🎓 Student: ahmad@student.umpsa.edu.my / password123
         </div>
     </div>
 </body>
