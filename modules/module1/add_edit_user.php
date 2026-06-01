@@ -171,30 +171,62 @@ if ($user_data) {
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 260px;
-            background: var(--umpsa-dark-blue);
-            color: white;
-            z-index: 1000;
-        }
-        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .sidebar-header h4 { margin: 0; font-size: 18px; }
-        .sidebar-menu { padding: 20px 0; }
-        .sidebar-menu a {
-            display: block;
-            padding: 12px 25px;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
-        .sidebar-menu a i { margin-right: 10px; width: 20px; }
-        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
-        
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 260px;
+    background: var(--umpsa-dark-blue);
+    color: white;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header h4 {
+    margin: 10px 0 0 0;
+    font-size: 18px;
+}
+
+.sidebar-header p {
+    margin: 5px 0 0 0;
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.sidebar-menu {
+    padding: 20px 0;
+}
+
+.sidebar-menu a {
+    display: block;
+    padding: 12px 25px;
+    margin: 5px 0;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(253,184,19,0.2);
+    color: white;
+}
+
+.sidebar-menu a i {
+    margin-right: 10px;
+    width: 20px;
+}
+
+.sidebar-menu a.active {
+    background: var(--umpsa-gold);
+    color: var(--umpsa-dark-blue);
+}
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -274,16 +306,32 @@ if ($user_data) {
 
 <div class="sidebar">
     <div class="sidebar-header">
-    <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
-    <h4>FK Club System</h4>
-    <p>Faculty of Computing</p>
+        <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+        <h4>FK Club System</h4>
+        <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
-        <a href="dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
-        <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
-        <a href="#"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
-        <a href="#"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
-        <a href="#"><i class="fas fa-chart-bar"></i> <span>Reports</span></a>
+        <a href="../module1/dashboard_admin.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'dashboard_admin.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-home"></i> <span>Dashboard</span>
+        </a>
+        <a href="../module1/manage_users.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_users.php' || basename($_SERVER['PHP_SELF']) == 'add_edit_user.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-users"></i> <span>Manage Users</span>
+        </a>
+        <a href="../module2/club_redirect.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_admin.php' || basename($_SERVER['PHP_SELF']) == 'club_edit.php' || basename($_SERVER['PHP_SELF']) == 'club_create.php' || basename($_SERVER['PHP_SELF']) == 'committee_assign.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-building"></i> <span>Manage Clubs</span>
+        </a>
+        <a href="../module3/manage_events.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php' || basename($_SERVER['PHP_SELF']) == 'create_event.php' || basename($_SERVER['PHP_SELF']) == 'edit_event.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-calendar-alt"></i> <span>Events</span>
+        </a>
+        <a href="../module4/attendance_dashboard.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_dashboard.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+        </a>
+        <a href="../module4/generate_report.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'generate_report.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-file-alt"></i> <span>Reports</span>
+        </a>
+        <a href="../module1/profile.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'profile.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-user"></i> <span>Profile</span>
+        </a>
     </div>
 </div>
 

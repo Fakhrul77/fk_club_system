@@ -2,14 +2,9 @@
 /**
  * Module 4 – Manage Attendance & Reports
  * Helper classes: PointsCalculator, RecognitionLevelDeterminer, QRCodeGenerator
+ * 
+ * NOTE: resolveColumn() is defined in field_map.php - DO NOT redeclare it here!
  */
-// Add this function at the very beginning of helpers.php
-function resolveColumn($pdo, $table, $possible_names) {
-    // Return the first possible name as default (simplest fix)
-    return $possible_names[0] ?? 'id';
-}
-
-// ... rest of your existing helpers.php code below ...
 
 class PointsCalculator {
     private $pdo;
@@ -183,7 +178,7 @@ class QRCodeGenerator {
         }
 
         $stmt = $this->pdo->prepare(
-            "SELECT er.registrationStatus, e.status AS eventStatus"
+            "SELECT er.status AS registrationStatus, e.status AS eventStatus"
           . " FROM event_registration er"
           . " JOIN event e ON er.event_id = e.event_id"
           . " WHERE er.registration_id = ? AND er.event_id = ?"

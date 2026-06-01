@@ -47,32 +47,62 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 260px;
-            background: var(--umpsa-dark-blue);
-            color: white;
-            z-index: 1000;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .sidebar-header h4 { margin: 0; font-size: 18px; }
-        .sidebar-header p { font-size: 11px; opacity: 0.7; margin-top: 5px; }
-        .sidebar-menu { padding: 20px 0; }
-        .sidebar-menu a {
-            display: block;
-            padding: 12px 25px;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
-        .sidebar-menu a i { margin-right: 10px; width: 20px; }
-        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
-        
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 260px;
+    background: var(--umpsa-dark-blue);
+    color: white;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header h4 {
+    margin: 10px 0 0 0;
+    font-size: 18px;
+}
+
+.sidebar-header p {
+    margin: 5px 0 0 0;
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.sidebar-menu {
+    padding: 20px 0;
+}
+
+.sidebar-menu a {
+    display: block;
+    padding: 12px 25px;
+    margin: 5px 0;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(253,184,19,0.2);
+    color: white;
+}
+
+.sidebar-menu a i {
+    margin-right: 10px;
+    width: 20px;
+}
+
+.sidebar-menu a.active {
+    background: var(--umpsa-gold);
+    color: var(--umpsa-dark-blue);
+}
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -188,6 +218,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
             <a href="../module4/attendance_dashboard.php">
                 <i class="fas fa-chart-bar"></i> <span>Attendance</span>
             </a>
+            <a href="../module4/generate_report.php">
+                <i class="fas fa-file-alt"></i> <span>Reports</span>
+            </a>
             <a href="profile.php" class="active">
                 <i class="fas fa-user"></i> <span>Profile</span>
             </a>
@@ -210,6 +243,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
             </a>
             <a href="../module4/attendance_dashboard.php">
                 <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+            </a>
+            <a href="../module4/generate_report.php">
+                <i class="fas fa-file-alt"></i> <span>Reports</span>
             </a>
             <a href="profile.php" class="active">
                 <i class="fas fa-user"></i> <span>Profile</span>
