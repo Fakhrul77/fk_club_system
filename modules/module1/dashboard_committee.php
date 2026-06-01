@@ -2,7 +2,6 @@
 session_start();
 require_once '../../includes/db_connection.php';
 
-// Check if logged in and is committee
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] != 2) {
     header("Location: login.php");
     exit();
@@ -10,12 +9,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] != 2) {
 
 $user_id = $_SESSION['user_id'];
 
-// DEBUG - Check what user is logged in
-$debug = false; // Set to true to see debug info
-
-// Get committee member's club information - IMPROVED QUERY
 $stmt = $pdo->prepare("
-    SELECT c.*, cp.positionName, cc.assignedDate, cc.committee_id
+    SELECT c.*, cp.positionName 
     FROM club_committee cc
     JOIN club c ON cc.club_id = c.club_id
     JOIN committee_position cp ON cc.position_id = cp.position_id
@@ -28,24 +23,19 @@ $club_id = $club_info['club_id'] ?? null;
 $club_name = $club_info['clubName'] ?? 'No Club Assigned';
 $position = $club_info['positionName'] ?? 'Committee Member';
 
-// Get club statistics - FIXED QUERIES
 if ($club_id) {
-    // Count total members in this club (from club_membership table)
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM club_membership WHERE club_id = ? AND status = 'Active'");
     $stmt->execute([$club_id]);
     $totalMembers = $stmt->fetchColumn();
     
-    // Count upcoming events for this club
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM event WHERE club_id = ? AND status = 'UPCOMING'");
     $stmt->execute([$club_id]);
     $upcomingEvents = $stmt->fetchColumn();
     
-    // Count pending applications (if status column exists, else show 0)
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM club_membership WHERE club_id = ? AND status = 'Pending'");
     $stmt->execute([$club_id]);
     $pendingApps = $stmt->fetchColumn();
     
-    // Get total points awarded by this club
     $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(ap.pointsEarned), 0) 
         FROM activity_points ap
@@ -61,14 +51,31 @@ if ($club_id) {
     $totalPoints = 0;
 }
 
-// DEBUG INFO - Remove this after fixing
-if ($debug) {
-    echo "<pre>";
-    echo "User ID: " . $user_id . "\n";
-    echo "Club ID: " . ($club_id ?? 'NULL') . "\n";
-    echo "Club Name: " . $club_name . "\n";
-    echo "Total Members: " . $totalMembers . "\n";
-    echo "</pre>";
+$recentEvents = [];
+if ($club_id) {
+    $stmt = $pdo->prepare("
+        SELECT event_id, event_title, event_date, venue, max_participant, current_participant, status
+        FROM event 
+        WHERE club_id = ? 
+        ORDER BY event_date ASC 
+        LIMIT 5
+    ");
+    $stmt->execute([$club_id]);
+    $recentEvents = $stmt->fetchAll();
+}
+
+$recentApps = [];
+if ($club_id) {
+    $stmt = $pdo->prepare("
+        SELECT cm.*, u.name, u.email, u.studentId
+        FROM club_membership cm
+        JOIN users u ON cm.user_id = u.user_id
+        WHERE cm.club_id = ? AND cm.status = 'Pending'
+        ORDER BY cm.joinDate DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$club_id]);
+    $recentApps = $stmt->fetchAll();
 }
 ?>
 <!DOCTYPE html>
@@ -82,43 +89,131 @@ if ($debug) {
     <style>
         :root { --umpsa-blue: #003B5C; --umpsa-gold: #FDB813; --umpsa-dark-blue: #002147; --umpsa-light-blue: #E8F0F8; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
+        
         .sidebar {
-            position: fixed; top: 0; left: 0; height: 100%; width: 260px; background: var(--umpsa-dark-blue);
-            color: white; z-index: 1000; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 260px;
+            background: var(--umpsa-dark-blue);
+            color: white;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
         .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .sidebar-header h4 { margin: 0; font-size: 18px; }
         .sidebar-header p { font-size: 11px; opacity: 0.7; margin-top: 5px; }
         .sidebar-menu { padding: 20px 0; }
         .sidebar-menu a {
-            display: block; padding: 12px 25px; color: rgba(255,255,255,0.8);
-            text-decoration: none; transition: all 0.3s; font-size: 14px;
+            display: block;
+            padding: 12px 25px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 14px;
         }
         .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
         .sidebar-menu a i { margin-right: 10px; width: 20px; }
         .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        
         .main-content { margin-left: 260px; padding: 20px; }
+        
         .top-nav {
-            background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px;
-            display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
         .welcome-text { font-size: 16px; font-weight: 500; }
         .badge-role { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; }
-        .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; }
+        .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; cursor: pointer; }
+        .logout-btn:hover { background: #c82333; }
+        
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card {
-            background: white; border-radius: 16px; padding: 20px; display: flex;
-            align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
         .stat-info h3 { font-size: 28px; font-weight: bold; color: var(--umpsa-blue); margin-bottom: 5px; }
-        .stat-info p { color: #666; margin: 0; font-size: 13px; }
         .stat-icon { width: 50px; height: 50px; background: rgba(0,59,92,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
         .stat-icon i { font-size: 28px; color: var(--umpsa-blue); }
+        
         .welcome-card {
             background: linear-gradient(135deg, var(--umpsa-blue) 0%, var(--umpsa-dark-blue) 100%);
             color: white; border-radius: 16px; padding: 25px; margin-bottom: 25px;
         }
+        
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .table-card h5 { color: var(--umpsa-blue); margin-bottom: 20px; font-weight: 600; }
+        .table-card h5 i { color: var(--umpsa-gold); margin-right: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; font-weight: 600; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .status-upcoming { background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
+        .status-pending { background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
+        .btn-approve { background: #28a745; color: white; border: none; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-right: 5px; }
+        .btn-reject { background: #dc3545; color: white; border: none; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; }
+        
+        /* Logout Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            width: 380px;
+            text-align: center;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .modal-btn-confirm {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .modal-btn-cancel {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
         @media (max-width: 768px) {
             .sidebar { width: 70px; }
             .sidebar-header h4, .sidebar-header p, .sidebar-menu a span { display: none; }
@@ -131,14 +226,22 @@ if ($debug) {
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h4>🏛️ FK Club System</h4>
-        <p>Faculty of Computing</p>
-    </div>
+    <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+    <h4>FK Club System</h4>
+    <p>Faculty of Computing</p>
+</div>
     <div class="sidebar-menu">
         <a href="#" class="active"><i class="fas fa-home"></i> <span>Dashboard</span></a>
-        <a href="#"><i class="fas fa-building"></i> <span>My Club</span></a>
-        <a href="#"><i class="fas fa-calendar-plus"></i> <span>Create Event</span></a>
-        <a href="#"><i class="fas fa-qrcode"></i> <span>Record Attendance</span></a>
+        <a href="../module2/club_redirect.php">
+        <i class="fas fa-building"></i> <span>My Club</span></a>
+        <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
+        <a href="../module3/create_event.php"><i class="fas fa-plus-circle"></i> <span>Create Event</span></a>
+        <a href="../module4/attendance_management.php">
+        <i class="fas fa-qrcode"></i> <span>Record Attendance</span></a><a href="../module4/attendance_dashboard.php">
+        <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span></a>
+        <a href="../module4/generate_report.php">
+        <i class="fas fa-file-alt"></i> <span>Report</span></a>
+        <a href="profile.php"><i class="fas fa-user"></i> <span>Profile</span></a>
     </div>
 </div>
 
@@ -151,7 +254,7 @@ if ($debug) {
                 <span class="badge-role" style="background: var(--umpsa-blue); color: white;"><?php echo htmlspecialchars($club_name); ?></span>
             <?php endif; ?>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <?php if (!$club_id): ?>
@@ -204,7 +307,120 @@ if ($debug) {
             <div class="stat-icon"><i class="fas fa-star"></i></div>
         </div>
     </div>
+
+    <!-- Upcoming Events Table -->
+    <div class="table-card">
+        <h5><i class="fas fa-calendar-alt"></i> Upcoming Events</h5>
+        <?php if (empty($recentEvents)): ?>
+            <p class="text-muted">No upcoming events scheduled.</p>
+        <?php else: ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event Name</th>
+                        <th>Date</th>
+                        <th>Venue</th>
+                        <th>Registration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentEvents as $event): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($event['event_title']); ?></td>
+                        <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
+                        <td><?php echo htmlspecialchars($event['venue']); ?></td>
+                        <td><?php echo $event['current_participant']; ?>/<?php echo $event['max_participant']; ?></td>
+                        <td><span class="status-upcoming"><?php echo $event['status']; ?></span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="alert('Manage event: <?php echo $event['event_title']; ?>')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="alert('Generate QR for: <?php echo $event['event_title']; ?>')">
+                                <i class="fas fa-qrcode"></i> QR
+                            </button>
+                         </td
+                     </tr
+                    <?php endforeach; ?>
+                </tbody>
+              </table
+        <?php endif; ?>
+        <div class="view-all-link mt-3">
+            <a href="#" class="btn btn-sm btn-success"><i class="fas fa-plus"></i> Create New Event</a>
+        </div>
+    </div>
+
+    <!-- Pending Applications Table -->
+    <div class="table-card">
+        <h5><i class="fas fa-user-plus"></i> Pending Membership Applications</h5>
+        <?php if (empty($recentApps)): ?>
+            <p class="text-muted">No pending applications.</p>
+        <?php else: ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Student ID</th>
+                        <th>Email</th>
+                        <th>Applied Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentApps as $app): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($app['name']); ?></td>
+                        <td><?php echo htmlspecialchars($app['studentId']); ?></td>
+                        <td><?php echo htmlspecialchars($app['email']); ?></td>
+                        <td><?php echo date('d M Y', strtotime($app['joinDate'])); ?></td>
+                        <td>
+                            <button class="btn-approve" onclick="alert('Approve: <?php echo $app['name']; ?>')">Approve</button>
+                            <button class="btn-reject" onclick="alert('Reject: <?php echo $app['name']; ?>')">Reject</button>
+                         </td
+                     </tr
+                    <?php endforeach; ?>
+                </tbody>
+              </table
+        <?php endif; ?>
+    </div>
 </div>
 
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
+        <h4>Confirm Logout</h4>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+            <button id="confirmLogout" class="modal-btn-confirm">Yes, Logout</button>
+            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showLogoutConfirm() {
+        document.getElementById('logoutModal').style.display = 'flex';
+    }
+    
+    document.getElementById('confirmLogout').onclick = function() {
+        window.location.href = '../../logout.php';
+    };
+    
+    document.getElementById('cancelLogout').onclick = function() {
+        document.getElementById('logoutModal').style.display = 'none';
+    };
+    
+    window.onclick = function(event) {
+        const modal = document.getElementById('logoutModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    };
+</script>
 </body>
 </html>
+<?php 
+$pdo = null;
+?>

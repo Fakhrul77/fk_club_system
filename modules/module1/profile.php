@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['user_role'];
 
 $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
 $stmt->execute([$user_id]);
@@ -45,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
-        /* Sidebar */
         .sidebar {
             position: fixed;
             top: 0;
@@ -73,10 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         .sidebar-menu a i { margin-right: 10px; width: 20px; }
         .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
         
-        /* Main Content */
         .main-content { margin-left: 260px; padding: 20px; }
         
-        /* Top Navbar */
         .top-nav {
             background: white;
             padding: 15px 25px;
@@ -89,10 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         }
         .welcome-text { font-size: 16px; font-weight: 500; }
         .badge-role { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; }
-        .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; }
+        .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; cursor: pointer; }
         .logout-btn:hover { background: #c82333; }
         
-        /* Profile Container */
         .profile-container { display: grid; grid-template-columns: 300px 1fr; gap: 25px; }
         .profile-sidebar { background: white; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .profile-avatar { width: 120px; height: 120px; background: var(--umpsa-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; }
@@ -104,17 +101,56 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         .info-row { display: flex; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 10px; align-items: center; }
         .info-label { width: 130px; font-weight: 600; color: #555; }
         .info-value { flex: 1; color: #333; }
-        .edit-input { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; display: none; }
-        .edit-input.show { display: block; }
-        .info-value.show { display: none; }
-        .btn-edit { background: var(--umpsa-blue); color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; margin-left: 10px; }
-        .btn-save { background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; margin-left: 10px; display: none; }
-        .btn-save.show { display: inline-block; }
+        .info-value input, .info-value select { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; }
         .club-tag { background: var(--umpsa-light-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; display: inline-block; margin: 3px; }
         .action-buttons { margin-top: 25px; display: flex; gap: 15px; }
+        .btn-save { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
         .btn-change-password { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
         .btn-cancel { background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
         .alert-success { background: #d4edda; color: #155724; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
+        
+        /* Logout Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            width: 380px;
+            text-align: center;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .modal-btn-confirm {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .modal-btn-cancel {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
         
         @media (max-width: 768px) {
             .sidebar { width: 70px; }
@@ -127,155 +163,242 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
     </style>
 </head>
 <body>
-
-<!-- ========== SIDEBAR WITH COMPLETE MENU ========== -->
-<div class="sidebar">
+    
+    <!-- ========== DYNAMIC SIDEBAR BASED ON ROLE ========== -->
+    <div class="sidebar">
     <div class="sidebar-header">
-        <h4>🏛️ FK Club System</h4>
+        <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+        <h4>FK Club System</h4>
         <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
-        <a href="dashboard_student.php">
-            <i class="fas fa-home"></i> <span>Dashboard</span>
-        </a>
-        <a href="#">
-            <i class="fas fa-building"></i> <span>Browse Clubs</span>
-        </a>
-        <a href="#">
-            <i class="fas fa-calendar-alt"></i> <span>Browse Events</span>
-        </a>
-        <a href="#">
-            <i class="fas fa-list"></i> <span>My Registrations</span>
-        </a>
-        <a href="#">
-            <i class="fas fa-star"></i> <span>My Points</span>
-        </a>
-        <a href="profile.php" class="active">
-            <i class="fas fa-user"></i> <span>Profile</span>
-        </a>
+        <?php if ($user_role == 1): // ADMIN SIDEBAR ?>
+            <a href="dashboard_admin.php">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="manage_users.php">
+                <i class="fas fa-users"></i> <span>Manage Users</span>
+            </a>
+            <a href="../module2/club_redirect.php">
+                <i class="fas fa-building"></i> <span>Manage Clubs</span>
+            </a>
+            <a href="../module3/manage_events.php">
+                <i class="fas fa-calendar-alt"></i> <span>Events</span>
+            </a>
+            <a href="../module4/attendance_dashboard.php">
+                <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+            </a>
+            <a href="profile.php" class="active">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+            
+        <?php elseif ($user_role == 2): // COMMITTEE SIDEBAR ?>
+            <a href="dashboard_committee.php">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="../module2/club_dashboard_committee.php">
+                <i class="fas fa-building"></i> <span>My Club</span>
+            </a>
+            <a href="../module3/manage_events.php">
+                <i class="fas fa-calendar-alt"></i> <span>Events</span>
+            </a>
+            <a href="../module3/create_event.php">
+                <i class="fas fa-calendar-plus"></i> <span>Create Event</span>
+            </a>
+            <a href="../module4/attendance_management.php">
+                <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
+            </a>
+            <a href="../module4/attendance_dashboard.php">
+                <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+            </a>
+            <a href="profile.php" class="active">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+            
+        <?php else: // STUDENT SIDEBAR ?>
+            <a href="dashboard_student.php">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="../module2/club_dashboard_student.php">
+                <i class="fas fa-building"></i> <span>Browse Clubs</span>
+            </a>
+            <a href="../module3/browse_events.php">
+                <i class="fas fa-calendar-alt"></i> <span>Browse Events</span>
+            </a>
+            <a href="../module3/my_registrations.php">
+                <i class="fas fa-list"></i> <span>My Registrations</span>
+            </a>
+            <a href="../module4/my_points_recognition.php">
+                <i class="fas fa-star"></i> <span>My Points</span>
+            </a>
+            <a href="profile.php" class="active">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+        <?php endif; ?>
     </div>
 </div>
 
-<!-- ========== MAIN CONTENT ========== -->
 <div class="main-content">
-    <!-- Top Navbar -->
     <div class="top-nav">
         <div class="welcome-text">
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($user['name']); ?>
-            <span class="badge-role"><?php echo $_SESSION['user_role_name'] ?? 'Student'; ?></span>
+            <span class="badge-role">
+                <?php 
+                    if ($user_role == 1) echo "Administrator";
+                    elseif ($user_role == 2) echo "Committee";
+                    else echo "Student";
+                ?>
+            </span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
-    <!-- Profile Container -->
     <div class="profile-container">
-        <!-- Left Sidebar - Profile Info -->
         <div class="profile-sidebar">
             <div class="profile-avatar">
                 <i class="fas fa-user-circle"></i>
             </div>
             <div class="profile-name"><?php echo htmlspecialchars($user['name']); ?></div>
-            <p class="text-muted"><i class="fas fa-id-card"></i> <?php echo htmlspecialchars($user['studentId']); ?></p>
+            <p class="text-muted"><i class="fas fa-id-card"></i> <?php echo htmlspecialchars($user['studentId'] ?? 'Staff'); ?></p>
             <hr>
             <p><i class="fas fa-envelope"></i> <?php echo htmlspecialchars($user['email']); ?></p>
             <p><i class="fas fa-phone"></i> <?php echo htmlspecialchars($user['phone'] ?? 'Not provided'); ?></p>
         </div>
 
-        <!-- Right Side - Editable Profile Information -->
         <div class="profile-info">
             <?php if ($update_success): ?>
                 <div class="alert-success"><i class="fas fa-check-circle"></i> <?php echo $update_success; ?></div>
             <?php endif; ?>
 
-            <form method="POST" id="profileForm">
+            <form method="POST">
                 <div class="info-section">
                     <h5><i class="fas fa-user"></i> Personal Information</h5>
                     <div class="info-row">
-                        <div class="info-label">Student ID:</div>
-                        <div class="info-value"><?php echo htmlspecialchars($user['studentId']); ?></div>
+                        <div class="info-label">ID:</div>
+                        <div class="info-value"><?php echo htmlspecialchars($user['studentId'] ?? 'Not set'); ?></div>
                     </div>
                     <div class="info-row">
                         <div class="info-label">Full Name:</div>
-                        <div class="info-value"><?php echo htmlspecialchars($user['name']); ?></div>
+                        <div class="info-value"><input type="text" name="name" value="<?php echo htmlspecialchars($user['name']); ?>"></div>
                     </div>
                     <div class="info-row">
                         <div class="info-label">Email:</div>
-                        <div class="info-value"><?php echo htmlspecialchars($user['email']); ?></div>
+                        <div class="info-value"><input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>"></div>
                     </div>
                     <div class="info-row">
-                        <div class="info-label">Phone Number:</div>
-                        <div class="info-value" id="phoneValue"><?php echo htmlspecialchars($user['phone'] ?? 'Not provided'); ?></div>
-                        <input type="text" class="edit-input" id="phoneInput" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
-                        <button type="button" class="btn-edit" onclick="editField('phone')"><i class="fas fa-edit"></i> Edit</button>
-                        <button type="submit" class="btn-save" name="update_profile" id="savePhoneBtn"><i class="fas fa-save"></i> Save</button>
+                        <div class="info-label">Phone:</div>
+                        <div class="info-value"><input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>"></div>
                     </div>
                 </div>
 
+                <?php if ($user_role != 1): ?>
                 <div class="info-section">
                     <h5><i class="fas fa-graduation-cap"></i> Academic Information</h5>
                     <div class="info-row">
                         <div class="info-label">Programme:</div>
-                        <div class="info-value" id="programmeValue"><?php echo htmlspecialchars($user['programme'] ?? 'Not specified'); ?></div>
-                        <select class="edit-input" id="programmeInput" name="programme">
-                            <option value="Computer Science" <?php echo ($user['programme'] == 'Computer Science') ? 'selected' : ''; ?>>Computer Science</option>
-                            <option value="Information Technology" <?php echo ($user['programme'] == 'Information Technology') ? 'selected' : ''; ?>>Information Technology</option>
-                            <option value="Software Engineering" <?php echo ($user['programme'] == 'Software Engineering') ? 'selected' : ''; ?>>Software Engineering</option>
-                            <option value="Data Science" <?php echo ($user['programme'] == 'Data Science') ? 'selected' : ''; ?>>Data Science</option>
-                        </select>
-                        <button type="button" class="btn-edit" onclick="editField('programme')"><i class="fas fa-edit"></i> Edit</button>
-                        <button type="submit" class="btn-save" name="update_profile" id="saveProgrammeBtn"><i class="fas fa-save"></i> Save</button>
+                        <div class="info-value">
+                            <select name="programme">
+                                <option value="">Select</option>
+                                <option value="Computer Science" <?php echo ($user['programme'] == 'Computer Science') ? 'selected' : ''; ?>>Computer Science</option>
+                                <option value="Information Technology" <?php echo ($user['programme'] == 'Information Technology') ? 'selected' : ''; ?>>Information Technology</option>
+                                <option value="Software Engineering" <?php echo ($user['programme'] == 'Software Engineering') ? 'selected' : ''; ?>>Software Engineering</option>
+                                <option value="Data Science" <?php echo ($user['programme'] == 'Data Science') ? 'selected' : ''; ?>>Data Science</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="info-row">
                         <div class="info-label">Year of Study:</div>
-                        <div class="info-value" id="yearValue"><?php echo htmlspecialchars($user['yearsOfStud'] ?? 'Not specified'); ?></div>
-                        <select class="edit-input" id="yearInput" name="year">
-                            <option value="1" <?php echo ($user['yearsOfStud'] == 1) ? 'selected' : ''; ?>>Year 1</option>
-                            <option value="2" <?php echo ($user['yearsOfStud'] == 2) ? 'selected' : ''; ?>>Year 2</option>
-                            <option value="3" <?php echo ($user['yearsOfStud'] == 3) ? 'selected' : ''; ?>>Year 3</option>
-                            <option value="4" <?php echo ($user['yearsOfStud'] == 4) ? 'selected' : ''; ?>>Year 4</option>
-                        </select>
-                        <button type="button" class="btn-edit" onclick="editField('year')"><i class="fas fa-edit"></i> Edit</button>
-                        <button type="submit" class="btn-save" name="update_profile" id="saveYearBtn"><i class="fas fa-save"></i> Save</button>
+                        <div class="info-value">
+                            <select name="year">
+                                <option value="">Select</option>
+                                <option value="1" <?php echo ($user['yearsOfStud'] == 1) ? 'selected' : ''; ?>>Year 1</option>
+                                <option value="2" <?php echo ($user['yearsOfStud'] == 2) ? 'selected' : ''; ?>>Year 2</option>
+                                <option value="3" <?php echo ($user['yearsOfStud'] == 3) ? 'selected' : ''; ?>>Year 3</option>
+                                <option value="4" <?php echo ($user['yearsOfStud'] == 4) ? 'selected' : ''; ?>>Year 4</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <div class="info-section">
                     <h5><i class="fas fa-building"></i> My Clubs</h5>
                     <?php if (empty($userClubs)): ?>
-                        <p class="text-muted">You haven't joined any clubs yet. <a href="#">Browse Clubs</a></p>
+                        <p class="text-muted">No clubs joined yet.</p>
                     <?php else: ?>
                         <?php foreach ($userClubs as $club): ?>
-                            <span class="club-tag"><i class="fas fa-check-circle" style="color: #28a745;"></i> <?php echo htmlspecialchars($club['clubName']); ?></span>
+                            <span class="club-tag"><?php echo htmlspecialchars($club['clubName']); ?></span>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
 
                 <div class="action-buttons">
-                    <button type="button" class="btn-change-password" onclick="alert('Change password feature coming soon')">
-                        <i class="fas fa-key"></i> Change Password
-                    </button>
-                    <a href="dashboard_student.php" class="btn-cancel">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
-                    </a>
+                    <button type="submit" name="update_profile" class="btn-save"><i class="fas fa-save"></i> Save Changes</button>
+                    <button type="button" class="btn-change-password" onclick="showPasswordModal()"><i class="fas fa-key"></i> Change Password</button>
+                    <?php if ($user_role == 1): ?>
+                        <a href="dashboard_admin.php" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                    <?php elseif ($user_role == 2): ?>
+                        <a href="dashboard_committee.php" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                    <?php else: ?>
+                        <a href="dashboard_student.php" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                    <?php endif; ?>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Change Password Modal -->
+<div id="passwordModal" class="modal-overlay">
+    <div class="modal-content">
+        <h4><i class="fas fa-lock"></i> Change Password</h4>
+        <form method="POST">
+            <input type="password" name="current_password" placeholder="Current Password" required>
+            <input type="password" name="new_password" placeholder="New Password" required>
+            <input type="password" name="confirm_password" placeholder="Confirm New Password" required>
+            <div class="modal-buttons">
+                <button type="submit" name="change_password" class="modal-btn-confirm">Update Password</button>
+                <button type="button" class="modal-btn-cancel" onclick="closePasswordModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
+        <h4>Confirm Logout</h4>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+            <button id="confirmLogout" class="modal-btn-confirm">Yes, Logout</button>
+            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
-function editField(field) {
-    // Hide value display
-    document.getElementById(field + 'Value').style.display = 'none';
-    // Show input
-    document.getElementById(field + 'Input').style.display = 'block';
-    // Hide edit button, show save button
-    const parentRow = document.getElementById(field + 'Value').parentElement;
-    const editBtn = parentRow.querySelector('.btn-edit');
-    const saveBtn = parentRow.querySelector('.btn-save');
-    editBtn.style.display = 'none';
-    saveBtn.style.display = 'inline-block';
-}
+    function showPasswordModal() {
+        document.getElementById('passwordModal').style.display = 'flex';
+    }
+    function closePasswordModal() {
+        document.getElementById('passwordModal').style.display = 'none';
+    }
+    function showLogoutConfirm() {
+        document.getElementById('logoutModal').style.display = 'flex';
+    }
+    document.getElementById('confirmLogout').onclick = function() {
+        window.location.href = '../../logout.php';
+    };
+    document.getElementById('cancelLogout').onclick = function() {
+        document.getElementById('logoutModal').style.display = 'none';
+    };
+    window.onclick = function(event) {
+        const logoutModal = document.getElementById('logoutModal');
+        const passwordModal = document.getElementById('passwordModal');
+        if (event.target == logoutModal) logoutModal.style.display = 'none';
+        if (event.target == passwordModal) passwordModal.style.display = 'none';
+    };
 </script>
 </body>
 </html>

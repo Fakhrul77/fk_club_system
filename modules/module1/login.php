@@ -2,7 +2,7 @@
 session_start();
 
 $host = '127.0.0.1';
-$port = '3307';
+$port = '3306';
 $dbname = 'fk_club_system';
 $username = 'root';
 $password = '';
@@ -75,6 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             justify-content: center;
             align-items: center;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-image: url('../../assets/images/fk4.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
         }
         .login-card {
             background: white;
@@ -82,11 +87,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 40px;
             width: 420px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .logo-container {
+            margin-bottom: 20px;
+        }
+        .logo {
+            max-width: 80px;
+            height: auto;
+            margin-bottom: 10px;
         }
         h2 {
             text-align: center;
             color: var(--umpsa-blue);
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            font-size: 24px;
         }
         .subtitle {
             text-align: center;
@@ -160,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
             align-items: center;
             gap: 10px;
+            text-align: left;
         }
         hr {
             margin: 20px 0;
@@ -169,7 +185,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 <body>
     <div class="login-card">
-        <h2>🏛️ FK Club System</h2>
+        <!-- Logo Section -->
+        <div class="logo-container">
+            <img src="../../assets/images/logo.png" alt="FK Logo" class="logo">
+            <h2>FK Club System</h2>
+        </div>
         <div class="subtitle">Student Club & Event Management System</div>
         
         <div class="info-alert">
@@ -189,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <a href="forgot_password.php">Forgot Password?</a>
             </div>
             
-            <button type="submit" class="btn-login">🔐 Login</button>
+            <button type="submit" class="btn-login">Login</button>
         </form>
         
         <hr>

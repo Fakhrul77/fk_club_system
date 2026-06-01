@@ -1,0 +1,117 @@
+<?php
+session_start();
+require_once '../../includes/db_connection.php';
+
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] != 1) {
+    header("Location: ../module1/login.php");
+    exit();
+}
+
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $club_name = trim($_POST['club_name']);
+    $club_category = trim($_POST['category']);
+    $club_description = trim($_POST['description']);
+    $advisor_name = trim($_POST['advisor_name']);
+    $advisor_email = trim($_POST['advisor_email']);
+    $status = $_POST['status'];
+    
+    if (empty($club_name) || empty($club_category)) {
+        $error = "Club name and category are required!";
+    } else {
+        $check = $pdo->prepare("SELECT club_id FROM club WHERE clubName = ?");
+        $check->execute([$club_name]);
+        if ($check->fetch()) {
+            $error = "Club name already exists!";
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO club (clubName, clubDescription, clubCategory, status, establishedDate, advisorName, advisorEmail, created_by) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?)");
+            $stmt->execute([$club_name, $club_description, $club_category, $status, $advisor_name, $advisor_email, $_SESSION['user_id']]);
+            header("Location: club_dashboard_admin.php?msg=created");
+            exit();
+        }
+    }
+}
+
+$current_page = basename($_SERVER['PHP_SELF']);
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Club - FK Club System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --umpsa-blue: #003B5C; --umpsa-gold: #FDB813; --umpsa-dark-blue: #002147; --umpsa-light-blue: #E8F0F8; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
+        
+        .sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 260px; background: var(--umpsa-dark-blue); color: white; z-index: 1000; }
+        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h4 { margin: 0; font-size: 18px; }
+        .sidebar-header p { margin: 5px 0 0; font-size: 11px; opacity: 0.7; }
+        .sidebar-menu { padding: 20px 0; }
+        .sidebar-menu a { display: block; padding: 12px 25px; color: rgba(255,255,255,0.8); text-decoration: none; transition: all 0.3s; font-size: 14px; }
+        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
+        .sidebar-menu a i { margin-right: 10px; width: 20px; }
+        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        
+        .main-content { margin-left: 260px; padding: 20px; }
+        .top-nav { background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .welcome-text { font-size: 16px; font-weight: 500; }
+        .badge-role { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; }
+        .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; }
+        
+        .form-container { max-width: 700px; margin: 0 auto; background: white; border-radius: 20px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .form-header { text-align: center; margin-bottom: 25px; }
+        .form-header h2 { color: var(--umpsa-blue); }
+        .form-header i { font-size: 50px; color: var(--umpsa-gold); }
+        .btn-submit { background: var(--umpsa-blue); color: white; padding: 12px 30px; border: none; border-radius: 8px; width: 100%; }
+        .btn-submit:hover { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        .btn-cancel { background: #6c757d; color: white; padding: 12px 30px; border: none; border-radius: 8px; text-decoration: none; display: inline-block; text-align: center; }
+        
+        @media (max-width: 768px) { .sidebar { width: 70px; } .sidebar-header h4, .sidebar-header p, .sidebar-menu a span { display: none; } .main-content { margin-left: 70px; } }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+    <h4>FK Club System</h4>
+    <p>Faculty of Computing</p>
+    </div>
+    <div class="sidebar-menu">
+        <a href="../module1/dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
+        <a href="../module1/manage_users.php"><i class="fas fa-users"></i> <span>Manage Users</span></a>
+        <a href="club_dashboard_admin.php" class="active"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
+    </div>
+</div>
+
+<div class="main-content">
+    <div class="top-nav">
+        <div class="welcome-text"><i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?><span class="badge-role">Administrator</span></div>
+        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <div class="form-container">
+        <div class="form-header"><i class="fas fa-plus-circle"></i><h2>Create New Club</h2><p class="text-muted">Fill in the details to start a new club</p></div>
+        <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
+        <form method="POST">
+            <div class="row">
+                <div class="col-md-6 mb-3"><label>Club Name *</label><input type="text" name="club_name" class="form-control" required></div>
+                <div class="col-md-6 mb-3"><label>Category *</label><select name="category" class="form-control" required><option value="">Select</option><option value="Academic">Academic</option><option value="Sports">Sports</option><option value="Cultural">Cultural</option><option value="Technical">Technical</option><option value="Business">Business</option><option value="Creative">Creative</option></select></div>
+                <div class="col-12 mb-3"><label>Description</label><textarea name="description" class="form-control" rows="3"></textarea></div>
+                <div class="col-md-6 mb-3"><label>Advisor Name</label><input type="text" name="advisor_name" class="form-control"></div>
+                <div class="col-md-6 mb-3"><label>Advisor Email</label><input type="email" name="advisor_email" class="form-control"></div>
+                <div class="col-md-6 mb-3"><label>Status</label><select name="status" class="form-control"><option value="Active">Active</option><option value="Pending">Pending</option><option value="Inactive">Inactive</option></select></div>
+            </div>
+            <div class="d-flex gap-3 mt-3"><button type="submit" class="btn-submit">Create Club</button><a href="club_dashboard_admin.php" class="btn-cancel">Cancel</a></div>
+        </form>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

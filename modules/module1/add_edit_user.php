@@ -31,6 +31,9 @@ $roles = $pdo->query("SELECT * FROM user_role")->fetchAll();
 // Get clubs for dropdown
 $clubs = $pdo->query("SELECT * FROM club WHERE status = 'Active'")->fetchAll();
 
+// Get committee positions for dropdown
+$positions = $pdo->query("SELECT * FROM committee_position")->fetchAll();
+
 // Handle form submission
 $success = '';
 $error = '';
@@ -45,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $year = !empty($_POST['year']) ? (int)$_POST['year'] : null;
     $role_id = (int)$_POST['role_id'];
     $club_id = !empty($_POST['club_id']) ? (int)$_POST['club_id'] : null;
+    $position_id = !empty($_POST['position_id']) ? (int)$_POST['position_id'] : null;
     $status = $_POST['status'];
     
     // Determine which ID to use based on role
@@ -62,6 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $error = "Please enter Staff ID for Administrator.";
     } elseif (($role_id == 2 || $role_id == 3) && empty($student_id)) {
         $error = "Please enter Student ID for Student/Committee.";
+    } elseif ($role_id == 2 && empty($position_id)) {
+        $error = "Please select a position for Committee Member.";
     } else {
         try {
             if ($is_edit) {
@@ -74,16 +80,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 ");
                 $stmt->execute([$id_value, $name, $email, $phone, $programme, $year, $role_id, $status, $user_id]);
                 
-                // Update club assignment if committee
+                // Update club and position assignment if committee
                 if ($role_id == 2) {
                     $check = $pdo->prepare("SELECT * FROM club_committee WHERE user_id = ?");
                     $check->execute([$user_id]);
                     if ($check->fetch()) {
-                        $update = $pdo->prepare("UPDATE club_committee SET club_id = ? WHERE user_id = ?");
-                        $update->execute([$club_id, $user_id]);
+                        $update = $pdo->prepare("UPDATE club_committee SET club_id = ?, position_id = ? WHERE user_id = ?");
+                        $update->execute([$club_id, $position_id, $user_id]);
                     } else if ($club_id) {
-                        $insert = $pdo->prepare("INSERT INTO club_committee (user_id, club_id, position_id, assignedDate, status) VALUES (?, ?, 5, CURDATE(), 'Active')");
-                        $insert->execute([$user_id, $club_id]);
+                        $insert = $pdo->prepare("INSERT INTO club_committee (user_id, club_id, position_id, assignedDate, status) VALUES (?, ?, ?, CURDATE(), 'Active')");
+                        $insert->execute([$user_id, $club_id, $position_id]);
                     }
                 } else {
                     $pdo->prepare("DELETE FROM club_committee WHERE user_id = ?")->execute([$user_id]);
@@ -109,9 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     
                     $new_user_id = $pdo->lastInsertId();
                     
-                    if ($role_id == 2 && $club_id) {
-                        $insert = $pdo->prepare("INSERT INTO club_committee (user_id, club_id, position_id, assignedDate, status) VALUES (?, ?, 5, CURDATE(), 'Active')");
-                        $insert->execute([$new_user_id, $club_id]);
+                    if ($role_id == 2 && $club_id && $position_id) {
+                        $insert = $pdo->prepare("INSERT INTO club_committee (user_id, club_id, position_id, assignedDate, status) VALUES (?, ?, ?, CURDATE(), 'Active')");
+                        $insert->execute([$new_user_id, $club_id, $position_id]);
                     }
                     
                     $success = "User created successfully! Temporary password: password123";
@@ -129,13 +135,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get user's club if committee
+// Get user's club and position if committee
 $user_club_id = null;
+$user_position_id = null;
 if ($is_edit && $user_data && $user_data['role_id'] == 2) {
-    $stmt = $pdo->prepare("SELECT club_id FROM club_committee WHERE user_id = ?");
+    $stmt = $pdo->prepare("SELECT club_id, position_id FROM club_committee WHERE user_id = ?");
     $stmt->execute([$user_id]);
-    $user_club = $stmt->fetch();
-    $user_club_id = $user_club['club_id'] ?? null;
+    $user_committee = $stmt->fetch();
+    $user_club_id = $user_committee['club_id'] ?? null;
+    $user_position_id = $user_committee['position_id'] ?? null;
 }
 
 // Determine which ID to display
@@ -266,12 +274,13 @@ if ($user_data) {
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h4>🏛️ FK Club System</h4>
-        <p>Faculty of Computing</p>
+    <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+    <h4>FK Club System</h4>
+    <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
         <a href="dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
-        <a href="manage_users.php" class="active"><i class="fas fa-users"></i> <span>Manage Users</span></a>
+        <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
         <a href="#"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
         <a href="#"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
         <a href="#"><i class="fas fa-chart-bar"></i> <span>Reports</span></a>
@@ -375,7 +384,7 @@ if ($user_data) {
                 
                 <!-- Club Field - Only for Committee role -->
                 <div class="form-group" id="club_field" style="display: none;">
-                    <label><i class="fas fa-building"></i> Assign Club (for Committee)</label>
+                    <label><i class="fas fa-building"></i> Assign Club</label>
                     <select name="club_id">
                         <option value="">Select Club</option>
                         <?php foreach ($clubs as $club): ?>
@@ -384,6 +393,21 @@ if ($user_data) {
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <div class="info-text">Select which club this committee member belongs to</div>
+                </div>
+                
+                <!-- Position Field - Only for Committee role -->
+                <div class="form-group" id="position_field" style="display: none;">
+                    <label><i class="fas fa-user-tie"></i> Committee Position</label>
+                    <select name="position_id">
+                        <option value="">Select Position</option>
+                        <?php foreach ($positions as $position): ?>
+                            <option value="<?php echo $position['position_id']; ?>" <?php echo (($user_position_id ?? '') == $position['position_id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($position['positionName']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="info-text">Select position (President, Secretary, Treasurer, etc.)</div>
                 </div>
                 
                 <!-- Status (All roles) -->
@@ -421,24 +445,28 @@ if ($user_data) {
         const studentFields = document.querySelectorAll('.student-field');
         const adminFields = document.querySelectorAll('.admin-field');
         const clubField = document.getElementById('club_field');
+        const positionField = document.getElementById('position_field');
         
         if (selectedRole === 'Administrator') {
             // Hide student fields, show admin fields
             studentFields.forEach(field => { field.style.display = 'none'; });
             adminFields.forEach(field => { field.style.display = 'block'; });
             clubField.style.display = 'none';
+            positionField.style.display = 'none';
         } 
-        else {
-            // Show student fields, hide admin fields
+        else if (selectedRole === 'Club Committee') {
+            // Show student fields, hide admin fields, show club and position
             studentFields.forEach(field => { field.style.display = 'block'; });
             adminFields.forEach(field => { field.style.display = 'none'; });
-            
-            // Show club field only for Committee
-            if (selectedRole === 'Club Committee') {
-                clubField.style.display = 'block';
-            } else {
-                clubField.style.display = 'none';
-            }
+            clubField.style.display = 'block';
+            positionField.style.display = 'block';
+        }
+        else {
+            // Student role - show student fields, hide admin, hide club and position
+            studentFields.forEach(field => { field.style.display = 'block'; });
+            adminFields.forEach(field => { field.style.display = 'none'; });
+            clubField.style.display = 'none';
+            positionField.style.display = 'none';
         }
     }
     
@@ -451,3 +479,6 @@ if ($user_data) {
 
 </body>
 </html>
+<?php 
+$pdo = null;
+?>

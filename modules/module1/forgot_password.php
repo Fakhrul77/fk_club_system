@@ -20,6 +20,11 @@
             justify-content: center;
             align-items: center;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-image: url('../../assets/images/fk4.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
         }
         .forgot-card {
             background: white;
@@ -29,10 +34,18 @@
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             text-align: center;
         }
-        .icon {
-            font-size: 60px;
-            color: var(--umpsa-gold);
+        .logo-container {
             margin-bottom: 20px;
+        }
+        .logo {
+            max-width: 80px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        .icon {
+            font-size: 50px;
+            color: var(--umpsa-gold);
+            margin-bottom: 10px;
         }
         h2 {
             color: var(--umpsa-blue);
@@ -49,12 +62,6 @@
             margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 8px;
-            font-size: 14px;
-        }
-        .form-control:focus {
-            outline: none;
-            border-color: var(--umpsa-gold);
-            box-shadow: 0 0 0 3px rgba(253,184,19,0.1);
         }
         .btn-send {
             width: 100%;
@@ -63,9 +70,7 @@
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
             cursor: pointer;
-            transition: all 0.3s;
         }
         .btn-send:hover {
             background: var(--umpsa-gold);
@@ -76,10 +81,6 @@
             display: inline-block;
             color: var(--umpsa-gold);
             text-decoration: none;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-            color: var(--umpsa-blue);
         }
         .success-message {
             background: #d4edda;
@@ -97,9 +98,10 @@
 </head>
 <body>
     <div class="forgot-card">
-        <div class="icon">
-            <i class="fas fa-key"></i>
+        <div class="logo-container">
+            <img src="../../assets/images/logo.png" alt="FK Logo" class="logo">
         </div>
+        
         <h2>Forgot Password?</h2>
         <div class="desc">Enter your registered email address and we'll send you a link to reset your password.</div>
         

@@ -213,13 +213,19 @@ $users = $pdo->query("
 </div>
 
 <div class="sidebar">
-    <div class="sidebar-header"><h4>🏛️ FK Club System</h4></div>
+    <div class="sidebar-header">
+    <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+    <h4>FK Club System</h4>
+    <p>Faculty of Computing</p>
+</div>
     <div class="sidebar-menu">
         <a href="dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
         <a href="manage_users.php" class="active"><i class="fas fa-users"></i> <span>Manage Users</span></a>
-        <a href="#"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
+        <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
         <a href="#"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
         <a href="#"><i class="fas fa-chart-bar"></i> <span>Reports</span></a>
+        <a href="../module1/profile.php"><i class="fas fa-user"></i> <span>Profile</span>
+    </a>
     </div>
 </div>
 
@@ -387,3 +393,6 @@ $users = $pdo->query("
 
 </body>
 </html>
+<?php 
+$pdo = null;
+?>
