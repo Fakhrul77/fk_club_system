@@ -3,12 +3,13 @@ session_start();
 require_once '../../includes/db_connection.php';
 require_once '../../includes/field_map.php';
 require_once '../../includes/helpers.php';
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../module1/login.php");
     exit();
 }
 
-$user_id   = $_SESSION['user_id'];
+$user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['user_role'];
 
 // Handle delete (admin and committee only)
@@ -17,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (in_array($user_role, [1, 2])) {
         $del_id = (int)($_POST['attendance_id'] ?? 0);
         if ($del_id > 0) {
-            // Get the attendance row before deleting so we can clean up points
             $stmt = $pdo->prepare(
                 "SELECT a.event_id, er.user_id"
               . " FROM attendance a"
@@ -32,13 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             if ($stmt->rowCount() > 0) {
                 $delete_msg = 'success';
-
-                // Remove the points awarded for this event and recalculate recognition level
                 if ($att_row) {
                     $calculator = new PointsCalculator($pdo);
-                    $recognizer = new RecognitionLevelDeterminer($pdo);
-
-                    // Only remove points if the student has no other Present attendance for this event
                     $check = $pdo->prepare(
                         "SELECT COUNT(*) FROM attendance a"
                       . " JOIN event_registration er ON a.registration_id = er.registration_id"
@@ -48,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     if ((int)$check->fetchColumn() === 0) {
                         $calculator->removePoints($att_row['user_id'], $att_row['event_id']);
                     }
-
                     $new_total = $calculator->getTotalPoints($att_row['user_id']);
+                    $recognizer = new RecognitionLevelDeterminer($pdo);
                     $recognizer->updateRecognitionLevel($att_row['user_id'], $new_total);
                 }
             } else {
@@ -57,7 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
     }
-    // Redirect to prevent form resubmit on refresh
     $qs = http_build_query(array_filter([
         'event'   => $_GET['event']   ?? '',
         'date'    => $_GET['date']    ?? '',
@@ -69,14 +63,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit();
 }
 
-// Pick up delete feedback from redirect
 if (isset($_GET['deleted'])) {
     $delete_msg = $_GET['deleted'];
 }
 
-$matrixCol    = resolveColumn($pdo, 'users', ['matrix_number','matrix','matrix_no','matric_number','student_matrix']);
+$matrixCol = resolveColumn($pdo, 'users', ['matrix_number','matrix','matrix_no','matric_number','student_matrix']);
 $eventDateCol = resolveColumn($pdo, 'event', ['eventDate','event_date','event_date_time','eventdate']);
-$eventTitleCol= resolveColumn($pdo, 'event', ['eventTitle','event_title','title']);
+$eventTitleCol = resolveColumn($pdo, 'event', ['eventTitle','event_title','title']);
 
 $filter_event   = $_GET['event']   ?? null;
 $filter_date    = $_GET['date']    ?? null;
@@ -91,7 +84,7 @@ if ($user_role == 1 || $user_role == 2) {
     $stmt = $pdo->prepare(
         "SELECT DISTINCT e.event_id, e.`$eventTitleCol` AS eventTitle, c.clubName"
       . " FROM event e JOIN club c ON e.club_id = c.club_id"
-      . " WHERE e.status IN ('Completed','ONGOING','Check-in Open')"
+      . " WHERE e.status IN ('COMPLETED','ONGOING','UPCOMING')"
       . " ORDER BY e.`$eventDateCol` DESC"
     );
     $stmt->execute();
@@ -110,18 +103,14 @@ if ($user_role == 1 || $user_role == 2) {
            . " WHERE 1=1";
     $params = [];
 
-    if ($filter_event) { $query .= " AND e.event_id = ?";                $params[] = $filter_event; }
-    if ($filter_date)  { $query .= " AND DATE(e.`$eventDateCol`) = ?";   $params[] = $filter_date; }
-    if ($filter_club)  { $query .= " AND c.club_id = ?";                 $params[] = $filter_club; }
+    if ($filter_event) { $query .= " AND e.event_id = ?"; $params[] = $filter_event; }
+    if ($filter_date)  { $query .= " AND DATE(e.`$eventDateCol`) = ?"; $params[] = $filter_date; }
+    if ($filter_club)  { $query .= " AND c.club_id = ?"; $params[] = $filter_club; }
     if ($filter_student) {
-        if ($matrixCol) {
-            $query .= " AND (u.name LIKE ? OR u.`$matrixCol` LIKE ?)";
-            $params[] = "%$filter_student%"; $params[] = "%$filter_student%";
-        } else {
-            $query .= " AND u.name LIKE ?";
-            $params[] = "%$filter_student%";
-        }
-    }
+    $query .= " AND (u.name LIKE ? OR u.studentId LIKE ?)";
+    $params[] = "%$filter_student%";
+    $params[] = "%$filter_student%";
+}
     $query .= " ORDER BY e.`$eventDateCol` DESC, u.name ASC";
     $stmt = $pdo->prepare($query);
     $stmt->execute($params);
@@ -165,7 +154,7 @@ foreach ($attendance_records as $r) {
 $total_records = count($attendance_records);
 $att_rate = $total_records > 0 ? round(($total_present / $total_records) * 100) : 0;
 
-// Chart data: per-event attendance trend (admin/committee) or per-event for student
+// Chart data
 $chart_labels  = [];
 $chart_present = [];
 $chart_absent  = [];
@@ -176,71 +165,261 @@ foreach ($attendance_records as $r) {
     if ($r['attendanceStatus'] == 'Present')    $event_groups[$key]['present']++;
     elseif ($r['attendanceStatus'] == 'Absent') $event_groups[$key]['absent']++;
 }
-// Limit to 8 events for readability
 $event_groups_slice = array_slice($event_groups, 0, 8, true);
 foreach ($event_groups_slice as $label => $counts) {
     $chart_labels[]  = $label;
     $chart_present[] = $counts['present'];
     $chart_absent[]  = $counts['absent'];
 }
-
-$page_title = "Attendance Dashboard";
 ?>
-<?php include '../../includes/header.php'; ?>
 
-<style>
-    :root { --umpsa-blue:#003B5C; --umpsa-gold:#FDB813; --umpsa-dark-blue:#002147; --umpsa-light-blue:#E8F0F8; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Dashboard - FK Club System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --umpsa-blue: #003B5C; --umpsa-gold: #FDB813; --umpsa-dark-blue: #002147; --umpsa-light-blue: #E8F0F8; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
+        
+        .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 260px;
+    background: var(--umpsa-dark-blue);
+    color: white;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
 
-    .page-title { color: var(--umpsa-blue); font-weight: 700; margin-bottom: 24px; }
-    .page-title i { color: var(--umpsa-gold); margin-right: 8px; }
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
 
-    /* Stat cards */
-    .stat-card {
-        background: white; border-radius: 16px; padding: 22px 20px;
-        display: flex; align-items: center; justify-content: space-between;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.06); transition: transform .2s; margin-bottom: 20px;
-    }
-    .stat-card:hover { transform: translateY(-3px); }
-    .stat-info h3 { font-size: 34px; font-weight: 700; color: var(--umpsa-blue); margin: 0 0 4px; }
-    .stat-info p  { color: #666; margin: 0; font-size: 13px; }
-    .stat-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .stat-icon i { font-size: 26px; }
-    .icon-green  { background: rgba(40,167,69,.12);  } .icon-green  i { color: #28a745; }
-    .icon-red    { background: rgba(220,53,69,.12);  } .icon-red    i { color: #dc3545; }
-    .icon-blue   { background: rgba(0,59,92,.10);    } .icon-blue   i { color: var(--umpsa-blue); }
+.sidebar-header h4 {
+    margin: 10px 0 0 0;
+    font-size: 18px;
+}
 
-    /* Section cards */
-    .sec-card { background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 24px; overflow: hidden; }
-    .sec-head {
-        padding: 14px 20px; background: var(--umpsa-blue); color: white;
-        font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px;
-    }
-    .sec-head i { color: var(--umpsa-gold); }
-    .sec-body { padding: 20px; }
+.sidebar-header p {
+    margin: 5px 0 0 0;
+    font-size: 11px;
+    opacity: 0.7;
+}
 
-    /* Filters */
-    .form-label  { font-weight: 500; font-size: 13px; color: #444; }
-    .form-control:focus, .form-select:focus { border-color: var(--umpsa-gold); box-shadow: 0 0 0 3px rgba(253,184,19,.15); }
+.sidebar-menu {
+    padding: 20px 0;
+}
 
-    /* Buttons */
-    .btn-umpsa       { background: var(--umpsa-blue); color: white; border: none; }
-    .btn-umpsa:hover { background: var(--umpsa-dark-blue); color: white; }
-    .btn-gold        { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); border: none; font-weight: 600; }
-    .btn-gold:hover  { background: #e0a800; color: var(--umpsa-dark-blue); }
+.sidebar-menu a {
+    display: block;
+    padding: 12px 25px;
+    margin: 5px 0;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 14px;
+}
 
-    /* Table */
-    .att-table thead th { background: var(--umpsa-blue); color: white; font-weight: 600; border: none; padding: 12px 14px; font-size: 13px; }
-    .att-table tbody td { padding: 11px 14px; border-bottom: 1px solid #eef; vertical-align: middle; font-size: 13px; }
-    .att-table tbody tr:hover { background: var(--umpsa-light-blue); }
+.sidebar-menu a:hover {
+    background: rgba(253,184,19,0.2);
+    color: white;
+}
 
-    /* Chart containers */
-    .chart-wrap { position: relative; height: 260px; }
-</style>
+.sidebar-menu a i {
+    margin-right: 10px;
+    width: 20px;
+}
 
+.sidebar-menu a.active {
+    background: var(--umpsa-gold);
+    color: var(--umpsa-dark-blue);
+}
+        .main-content { margin-left: 260px; padding: 20px; }
+        
+        .top-nav {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .welcome-text { font-size: 16px; font-weight: 500; }
+        .badge-role { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; }
+        .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; cursor: pointer; }
+        .logout-btn:hover { background: #c82333; }
+        
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-info h3 { font-size: 28px; font-weight: bold; color: var(--umpsa-blue); margin-bottom: 5px; }
+        .stat-info p { color: #666; margin: 0; font-size: 13px; }
+        .stat-icon { width: 50px; height: 50px; background: rgba(0,59,92,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .stat-icon i { font-size: 28px; color: var(--umpsa-blue); }
+        
+        .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .chart-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .chart-card h5 { color: var(--umpsa-blue); margin-bottom: 20px; font-weight: 600; }
+        .chart-card h5 i { color: var(--umpsa-gold); margin-right: 8px; }
+        
+        .sec-card { background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 24px; overflow: hidden; }
+        .sec-head { padding: 14px 20px; background: var(--umpsa-blue); color: white; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .sec-head i { color: var(--umpsa-gold); }
+        .sec-body { padding: 20px; }
+        
+        .form-label { font-weight: 500; font-size: 13px; color: #444; }
+        .form-control:focus, .form-select:focus { border-color: var(--umpsa-gold); box-shadow: 0 0 0 3px rgba(253,184,19,.15); }
+        .btn-umpsa { background: var(--umpsa-blue); color: white; border: none; padding: 8px 20px; border-radius: 8px; }
+        .btn-umpsa:hover { background: var(--umpsa-dark-blue); color: white; }
+        
+        .att-table thead th { background: var(--umpsa-blue); color: white; font-weight: 600; border: none; padding: 12px 14px; font-size: 13px; }
+        .att-table tbody td { padding: 11px 14px; border-bottom: 1px solid #eef; vertical-align: middle; font-size: 13px; }
+        .att-table tbody tr:hover { background: var(--umpsa-light-blue); }
+        
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            width: 380px;
+            text-align: center;
+        }
+        .modal-buttons { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
+        .modal-btn-confirm { background: #dc3545; color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; }
+        .modal-btn-cancel { background: #6c757d; color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; }
+        
+        @media (max-width: 768px) {
+            .sidebar { width: 70px; }
+            .sidebar-header h4, .sidebar-header p, .sidebar-menu a span { display: none; }
+            .main-content { margin-left: 70px; }
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .charts-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <div class="sidebar-header">
+        <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+        <h4>FK Club System</h4>
+        <p>Faculty of Computing</p>
+    </div>
+    <div class="sidebar-menu">
+        <?php if ($user_role == 1): ?>
+            <a href="../module1/dashboard_admin.php">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="../module1/manage_users.php">
+                <i class="fas fa-users"></i> <span>Manage Users</span>
+            </a>
+            <a href="../module2/club_dashboard_admin.php">
+                <i class="fas fa-building"></i> <span>Manage Clubs</span>
+            </a>
+            <a href="../module3/manage_events.php">
+                <i class="fas fa-calendar-alt"></i> <span>Events</span>
+            </a>
+            <a href="attendance_dashboard.php" class="active">
+                <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+            </a>
+            <a href="generate_report.php">
+                <i class="fas fa-file-alt"></i> <span>Reports</span>
+            </a>
+            <a href="../module1/profile.php">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+        <?php elseif ($user_role == 2): ?>
+            <a href="../module1/dashboard_committee.php">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="../module2/club_dashboard_committee.php">
+                <i class="fas fa-building"></i> <span>My Club</span>
+            </a>
+            <a href="../module3/manage_events.php">
+                <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
+            </a>
+            <a href="attendance_management.php">
+                <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
+            </a>
+            <a href="attendance_dashboard.php" class="active">
+                <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
+            </a>
+            <a href="generate_report.php">
+                <i class="fas fa-file-alt"></i> <span>Reports</span>
+            </a>
+            <a href="../module1/profile.php">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+        <?php else: ?>
+            <a href="../module1/dashboard_student.php">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="../module2/club_dashboard_student.php">
+                <i class="fas fa-building"></i> <span>Browse Clubs</span>
+            </a>
+            <a href="../module3/browse_events.php">
+                <i class="fas fa-calendar-alt"></i> <span>Browse Events</span>
+            </a>
+            <a href="../module3/my_registrations.php">
+                <i class="fas fa-list"></i> <span>My Registrations</span>
+            </a>
+            <a href="my_points_recognition.php">
+                <i class="fas fa-star"></i> <span>My Points</span>
+            </a>
+            <a href="attendance_dashboard.php" class="active">
+                <i class="fas fa-chart-line"></i> <span>Attendance History</span>
+            </a>
+            <a href="../module1/profile.php">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
 <div class="main-content">
-<div class="container-fluid mt-2">
+    <div class="top-nav">
+        <div class="welcome-text">
+            <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
+            <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : ($user_role == 2 ? 'Committee' : 'Student'); ?></span>
+        </div>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
 
-    <h2 class="page-title"><i class="fas fa-chart-bar"></i> Attendance Dashboard</h2>
+    <h2 class="mb-4" style="color: var(--umpsa-blue);"><i class="fas fa-chart-bar"></i> Attendance Dashboard</h2>
 
     <?php if ($delete_msg === 'success'): ?>
         <div class="alert alert-success alert-dismissible fade show">
@@ -254,30 +433,28 @@ $page_title = "Attendance Dashboard";
         </div>
     <?php endif; ?>
 
-    <!-- ── Stat Cards ─────────────────────────────────────────── -->
-    <div class="row">
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="stat-info"><h3><?php echo $total_present; ?></h3><p>Total Present</p></div>
-                <div class="stat-icon icon-green"><i class="fas fa-check-circle"></i></div>
-            </div>
+    <!-- Stat Cards -->
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-info"><h3><?php echo $total_present; ?></h3><p>Total Present</p></div>
+            <div class="stat-icon"><i class="fas fa-check-circle" style="color: #28a745;"></i></div>
         </div>
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="stat-info"><h3><?php echo $total_absent; ?></h3><p>Total Absent</p></div>
-                <div class="stat-icon icon-red"><i class="fas fa-times-circle"></i></div>
-            </div>
+        <div class="stat-card">
+            <div class="stat-info"><h3><?php echo $total_absent; ?></h3><p>Total Absent</p></div>
+            <div class="stat-icon"><i class="fas fa-times-circle" style="color: #dc3545;"></i></div>
         </div>
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="stat-info"><h3><?php echo $att_rate; ?>%</h3><p>Attendance Rate</p></div>
-                <div class="stat-icon icon-blue"><i class="fas fa-percent"></i></div>
-            </div>
+        <div class="stat-card">
+            <div class="stat-info"><h3><?php echo $att_rate; ?>%</h3><p>Attendance Rate</p></div>
+            <div class="stat-icon"><i class="fas fa-percent" style="color: var(--umpsa-blue);"></i></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info"><h3><?php echo $total_records; ?></h3><p>Total Records</p></div>
+            <div class="stat-icon"><i class="fas fa-database" style="color: var(--umpsa-gold);"></i></div>
         </div>
     </div>
 
     <?php if ($user_role == 1 || $user_role == 2): ?>
-    <!-- ── Filters ────────────────────────────────────────────── -->
+    <!-- Filters -->
     <div class="sec-card">
         <div class="sec-head"><i class="fas fa-filter"></i> Filters</div>
         <div class="sec-body">
@@ -315,50 +492,40 @@ $page_title = "Attendance Dashboard";
                 <div class="col-12 d-flex gap-2">
                     <button type="submit" class="btn btn-umpsa btn-sm"><i class="fas fa-search"></i> Apply Filters</button>
                     <a href="attendance_dashboard.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-redo"></i> Reset</a>
-                    <a href="attendance_management.php" class="btn btn-gold btn-sm ms-auto"><i class="fas fa-qrcode"></i> Open QR Scanner</a>
                 </div>
             </form>
         </div>
     </div>
     <?php endif; ?>
 
-    <!-- ── Charts ─────────────────────────────────────────────── -->
+    <!-- Charts -->
     <?php if (!empty($attendance_records)): ?>
-    <div class="row">
-        <div class="col-md-8">
-            <div class="sec-card">
-                <div class="sec-head"><i class="fas fa-chart-bar"></i> Attendance Trend</div>
-                <div class="sec-body">
-                    <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-                </div>
-            </div>
+    <div class="charts-row">
+        <div class="chart-card">
+            <h5><i class="fas fa-chart-bar"></i> Attendance Trend by Event</h5>
+            <canvas id="trendChart" style="height: 250px;"></canvas>
         </div>
-        <div class="col-md-4">
-            <div class="sec-card">
-                <div class="sec-head"><i class="fas fa-chart-pie"></i> Attendance Distribution</div>
-                <div class="sec-body">
-                    <div class="chart-wrap"><canvas id="distChart"></canvas></div>
-                </div>
-            </div>
+        <div class="chart-card">
+            <h5><i class="fas fa-chart-pie"></i> Overall Attendance Distribution</h5>
+            <canvas id="distChart" style="height: 250px;"></canvas>
         </div>
     </div>
     <?php endif; ?>
 
-    <!-- ── Attendance Table ───────────────────────────────────── -->
+    <!-- Attendance Table -->
     <div class="sec-card">
-        <div class="sec-head"><i class="fas fa-table"></i> Attendance Records
+        <div class="sec-head">
+            <i class="fas fa-table"></i> Attendance Records
             <?php if ($total_records > 0): ?>
-                <span class="ms-auto badge" style="background:var(--umpsa-gold);color:var(--umpsa-dark-blue);font-size:12px;"><?php echo $total_records; ?> records</span>
+                <span class="ms-auto badge" style="background:var(--umpsa-gold);color:var(--umpsa-dark-blue);"><?php echo $total_records; ?> records</span>
             <?php endif; ?>
         </div>
         <div class="sec-body p-0">
             <?php if (empty($attendance_records)): ?>
-                <div class="p-4">
+                <div class="p-4 text-center">
                     <div class="alert alert-info mb-0">
                         <i class="fas fa-info-circle me-2"></i>
-                        <?php echo ($user_role == 3)
-                            ? 'No attendance records yet. Attend events to build your history!'
-                            : 'No attendance records match the selected filters.'; ?>
+                        <?php echo ($user_role == 3) ? 'No attendance records yet. Attend events to build your history!' : 'No attendance records match the selected filters.'; ?>
                     </div>
                 </div>
             <?php else: ?>
@@ -374,17 +541,17 @@ $page_title = "Attendance Dashboard";
                                 <th>Matrix No.</th>
                                 <th>Status</th>
                                 <th>Check-in Time</th>
-                                <?php if ($user_role != 3): ?><th style="width:80px;">Action</th><?php endif; ?>
+                                <?php if ($user_role != 3): ?><th>Action</th><?php endif; ?>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($attendance_records as $i => $record):
-                                $sc = match($record['attendanceStatus']) {
-                                    'Present' => 'success', 'Absent' => 'danger', default => 'warning'
-                                };
+                                if ($record['attendanceStatus'] == 'Present') $sc = 'success';
+                                elseif ($record['attendanceStatus'] == 'Absent') $sc = 'danger';
+                                else $sc = 'warning';
                             ?>
                             <tr>
-                                <td class="text-muted"><?php echo $i + 1; ?></td>
+                                <td><?php echo $i + 1; ?></td>
                                 <td><?php echo htmlspecialchars($record['eventTitle']); ?></td>
                                 <td><?php echo date('d M Y', strtotime($record['eventDate'])); ?></td>
                                 <td><?php echo htmlspecialchars($record['clubName']); ?></td>
@@ -396,7 +563,7 @@ $page_title = "Attendance Dashboard";
                                 <td><?php echo $record['checkInTime'] ? date('H:i', strtotime($record['checkInTime'])) : '—'; ?></td>
                                 <?php if ($user_role != 3): ?>
                                 <td>
-                                    <form method="POST" action="attendance_dashboard.php?<?php echo htmlspecialchars(http_build_query(array_filter(['event'=>$filter_event,'date'=>$filter_date,'club'=>$filter_club,'student'=>$filter_student]))); ?>" onsubmit="return confirm('Delete this attendance record? This cannot be undone.');">
+                                    <form method="POST" onsubmit="return confirm('Delete this attendance record? This cannot be undone.');">
                                         <input type="hidden" name="action" value="delete_attendance">
                                         <input type="hidden" name="attendance_id" value="<?php echo $record['attendance_id']; ?>">
                                         <button type="submit" class="btn btn-sm btn-danger" title="Delete record">
@@ -413,69 +580,95 @@ $page_title = "Attendance Dashboard";
             <?php endif; ?>
         </div>
     </div>
-
-</div>
 </div>
 
-<?php if (!empty($attendance_records)): ?>
+<!-- Logout Modal -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
+        <h4>Confirm Logout</h4>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+            <button id="confirmLogout" class="modal-btn-confirm">Yes, Logout</button>
+            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const BLUE  = '#003B5C';
-const GOLD  = '#FDB813';
-const RED   = '#dc3545';
-const GREEN = '#28a745';
-
-// Bar – Attendance Trend
-const trendCtx = document.getElementById('trendChart').getContext('2d');
-new Chart(trendCtx, {
-    type: 'bar',
-    data: {
-        labels: <?php echo json_encode($chart_labels); ?>,
-        datasets: [
-            {
-                label: 'Present',
-                data: <?php echo json_encode($chart_present); ?>,
-                backgroundColor: GREEN,
-                borderRadius: 6
-            },
-            {
-                label: 'Absent',
-                data: <?php echo json_encode($chart_absent); ?>,
-                backgroundColor: RED,
-                borderRadius: 6
-            }
-        ]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } },
-        scales: {
-            x: { ticks: { maxRotation: 30, font: { size: 11 } } },
-            y: { beginAtZero: true, ticks: { stepSize: 1 } }
-        }
+    // Logout functionality
+    function showLogoutConfirm() {
+        document.getElementById('logoutModal').style.display = 'flex';
     }
-});
-
-// Pie – Distribution
-const distCtx = document.getElementById('distChart').getContext('2d');
-new Chart(distCtx, {
-    type: 'pie',
-    data: {
-        labels: ['Present', 'Absent', 'Excused'],
-        datasets: [{
-            data: [<?php echo $total_present; ?>, <?php echo $total_absent; ?>, <?php echo $total_excused; ?>],
-            backgroundColor: [GREEN, RED, GOLD],
-            borderWidth: 2, borderColor: '#fff'
-        }]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 16 } }
+    
+    document.getElementById('confirmLogout').onclick = function() {
+        window.location.href = '../../logout.php';
+    };
+    
+    document.getElementById('cancelLogout').onclick = function() {
+        document.getElementById('logoutModal').style.display = 'none';
+    };
+    
+    window.onclick = function(event) {
+        const modal = document.getElementById('logoutModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
         }
-    }
-});
+    };
+
+    <?php if (!empty($attendance_records)): ?>
+    // Attendance Trend Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'bar',
+        data: {
+            labels: <?php echo json_encode($chart_labels); ?>,
+            datasets: [
+                {
+                    label: 'Present',
+                    data: <?php echo json_encode($chart_present); ?>,
+                    backgroundColor: '#28a745',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Absent',
+                    data: <?php echo json_encode($chart_absent); ?>,
+                    backgroundColor: '#dc3545',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+
+    // Distribution Pie Chart
+    const distCtx = document.getElementById('distChart').getContext('2d');
+    new Chart(distCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Present', 'Absent', 'Excused'],
+            datasets: [{
+                data: [<?php echo $total_present; ?>, <?php echo $total_absent; ?>, <?php echo $total_excused; ?>],
+                backgroundColor: ['#28a745', '#dc3545', '#FDB813'],
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } }
+        }
+    });
+    <?php endif; ?>
 </script>
-<?php endif; ?>
 
-<?php include '../../includes/footer.php'; ?>
+</body>
+</html>
+<?php $pdo = null; ?>

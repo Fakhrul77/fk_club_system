@@ -47,6 +47,30 @@ if ($pendingApps > 0) {
     $pendingApplication = $stmt->fetch();
 }
 
+// Check if student has any rejected application
+$stmt = $pdo->prepare("
+    SELECT a.*, c.clubName, c.club_id, c.clubCategory, c.clubDescription
+    FROM club_membership_applications a
+    JOIN club c ON a.club_id = c.club_id
+    WHERE a.user_id = ? AND a.status = 'Rejected'
+    ORDER BY a.application_date DESC
+    LIMIT 1
+");
+$stmt->execute([$user_id]);
+$rejectedApplication = $stmt->fetch();
+
+// Handle dismiss rejected message
+if (isset($_GET['clear_rejected'])) {
+    // Option 1: Delete the rejected record
+    $stmt = $pdo->prepare("DELETE FROM club_membership_applications WHERE user_id = ? AND status = 'Rejected'");
+    $stmt->execute([$user_id]);
+    header("Location: club_dashboard_student.php");
+    exit();
+    
+    // OR Option 2: Just mark it as seen by adding a 'seen' column to database
+    // $stmt = $pdo->prepare("UPDATE club_membership_applications SET seen = 1 WHERE user_id = ? AND status = 'Rejected'");
+}
+
 // Get upcoming events for student's club (if member)
 $upcomingEvents = [];
 if ($clubsJoined > 0 && $currentClub) {
@@ -182,55 +206,62 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         /* ========== SIDEBAR - FIXED SPACING ========== */
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 260px;
-            background: var(--umpsa-dark-blue);
-            color: white;
-            z-index: 1000;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        .sidebar-header {
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .sidebar-header h4 {
-            margin: 10px 0 0 0;
-            font-size: 18px;
-        }
-        .sidebar-header p {
-            margin: 5px 0 0 0;
-            font-size: 11px;
-            opacity: 0.7;
-        }
-        .sidebar-menu {
-            padding: 20px 0;
-        }
-        .sidebar-menu a {
-            display: block;
-            padding: 12px 25px;
-            margin: 5px 0;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-        .sidebar-menu a:hover {
-            background: rgba(253,184,19,0.2);
-            color: white;
-        }
-        .sidebar-menu a i {
-            margin-right: 10px;
-            width: 20px;
-        }
-        .sidebar-menu a.active {
-            background: var(--umpsa-gold);
-            color: var(--umpsa-dark-blue);
-        }
-        
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 260px;
+    background: var(--umpsa-dark-blue);
+    color: white;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header h4 {
+    margin: 10px 0 0 0;
+    font-size: 18px;
+}
+
+.sidebar-header p {
+    margin: 5px 0 0 0;
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.sidebar-menu {
+    padding: 20px 0;
+}
+
+.sidebar-menu a {
+    display: block;
+    padding: 12px 25px;
+    margin: 5px 0;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(253,184,19,0.2);
+    color: white;
+}
+
+.sidebar-menu a i {
+    margin-right: 10px;
+    width: 20px;
+}
+
+.sidebar-menu a.active {
+    background: var(--umpsa-gold);
+    color: var(--umpsa-dark-blue);
+}
         /* ========== MAIN CONTENT ========== */
         .main-content {
             margin-left: 260px;
@@ -429,7 +460,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <p><small>Member since: <?php echo date('d F Y', strtotime($currentClub['joinDate'])); ?></small></p>
                 </div>
                 <div>
-                    <a href="?leave=1" class="btn btn-outline-light" onclick="return confirm('Are you sure you want to leave this club? You can join another club after leaving.')"><i class="fas fa-sign-out-alt"></i> Leave Club</a>
+                    <button type="button" class="btn btn-outline-light" onclick="openLeaveClubModal()">
+                  <i class="fas fa-sign-out-alt"></i> Leave Club
+                   </button>
                 </div>
             </div>
         </div>
@@ -493,7 +526,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             To join another club, you must leave your current club first.
         </div>
 
-    <!-- ========== IF STUDENT HAS PENDING APPLICATION ========== -->
+           <!-- ========== IF STUDENT HAS PENDING APPLICATION ========== -->
     <?php elseif ($pendingApplication): ?>
         <div class="info-box">
             <div class="d-flex justify-content-between align-items-center">
@@ -507,11 +540,45 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php endif; ?>
                     <p class="small text-muted mt-2">Please wait for committee approval. You cannot apply to other clubs while pending.</p>
                 </div>
-                <a href="?cancel=1" class="btn btn-danger" onclick="return confirm('Cancel your application?')"><i class="fas fa-times"></i> Cancel Application</a>
+                <button type="button" class="btn btn-danger" onclick="openCancelApplicationModal()">
+                    <i class="fas fa-times"></i> Cancel Application
+                </button>
             </div>
         </div>
 
-    <!-- ========== IF STUDENT HAS NO CLUB AND NO PENDING APPLICATION ========== -->
+    <!-- ========== IF STUDENT HAS REJECTED APPLICATION ========== -->
+    <?php elseif ($rejectedApplication): ?>
+        <div class="info-box" style="background: #f8d7da; border-left-color: #dc3545;">
+            <div class="d-flex justify-content-between align-items-start">
+                <div style="flex: 1;">
+                    <h5 style="color: #721c24;"><i class="fas fa-times-circle" style="color: #dc3545;"></i> Application Rejected</h5>
+                    <p>Your application to join <strong><?php echo htmlspecialchars($rejectedApplication['clubName']); ?></strong> was not approved.</p>
+                    
+                    <!-- Show rejection reason -->
+                    <div style="background: white; padding: 12px 15px; border-radius: 10px; margin-top: 10px; border-left: 3px solid #dc3545;">
+                        <strong><i class="fas fa-info-circle"></i> Reason for rejection:</strong><br>
+                        <?php echo nl2br(htmlspecialchars($rejectedApplication['rejection_reason'] ?? 'No specific reason provided.')); ?>
+                    </div>
+                    
+                    <?php if ($rejectedApplication['committee_remarks']): ?>
+                        <div style="background: #fff3cd; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px;">
+                            <i class="fas fa-comment"></i> <strong>Committee notes:</strong> <?php echo nl2br(htmlspecialchars($rejectedApplication['committee_remarks'])); ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <p class="small text-muted mt-3">
+                        <i class="fas fa-lightbulb"></i> Tip: You can now apply to other clubs. Learn from this feedback and try again!
+                    </p>
+                </div>
+                <div>
+                    <a href="?clear_rejected=1" class="btn btn-outline-danger btn-sm">
+                   <i class="fas fa-times"></i> Dismiss
+                </a>
+                </div>
+            </div>
+        </div>
+
+    <!-- ========== IF STUDENT HAS NO CLUB, NO PENDING, NO REJECTED ========== -->
     <?php else: ?>
         <div class="info-box">
             <i class="fas fa-info-circle"></i> You are not a member of any club yet. You can only join ONE club. Browse and apply below.
@@ -586,6 +653,88 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 </div>
 
+<!-- Cancel Application Modal -->
+<div class="modal fade" id="cancelApplicationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 14px; overflow: hidden;">
+
+            <!-- Header -->
+            <div style="background: var(--umpsa-dark-blue); color: white; padding: 15px;">
+                <h5 style="margin: 0; font-weight: 600;">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--umpsa-gold);"></i>
+                    Confirm Application Cancellation
+                </h5>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 20px; font-size: 14px; color: #333;">
+                <p style="margin-bottom: 10px;">
+                    You are about to cancel your club application.
+                </p>
+
+                <div style="background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 13px;">
+                    ⚠️ If you cancel, you will need to submit a new application to join a club again.
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Keep Application
+                </button>
+
+                <a href="?cancel=1" class="btn btn-danger">
+                    Yes, Cancel
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Leave Club Modal -->
+<div class="modal fade" id="leaveClubModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 14px; overflow: hidden;">
+
+            <!-- Header -->
+            <div style="background: var(--umpsa-dark-blue); color: white; padding: 15px;">
+                <h5 style="margin: 0; font-weight: 600;">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--umpsa-gold);"></i>
+                    Confirm Leave Club
+                </h5>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 20px; font-size: 14px; color: #333;">
+                <p>
+                    You are about to leave your current club:
+                </p>
+
+                <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; font-weight: 600;">
+                    <?php echo htmlspecialchars($currentClub['clubName'] ?? ''); ?>
+                </div>
+
+                <div style="margin-top: 12px; background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 13px;">
+                    ⚠️ After leaving, you will be able to apply to another club, but you will lose your current membership.
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+
+                <a href="?leave=1" class="btn btn-danger">
+                    Yes, Leave Club
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     function showApplicationForm(clubId, clubName) {
@@ -593,6 +742,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
         document.getElementById('modalClubName').innerText = clubName;
         new bootstrap.Modal(document.getElementById('applicationModal')).show();
     }
+</script>
+<script>
+function openCancelApplicationModal() {
+    const modal = new bootstrap.Modal(document.getElementById('cancelApplicationModal'));
+    modal.show();
+}
+</script>
+
+<script>
+function openLeaveClubModal() {
+    new bootstrap.Modal(document.getElementById('leaveClubModal')).show();
+}
 </script>
 </body>
 </html>

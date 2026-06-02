@@ -82,51 +82,65 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $remarks = trim($_POST['remarks'] ?? '');
     
     if ($action == 'approve') {
-        $app = $pdo->prepare("SELECT * FROM club_membership_applications WHERE application_id = ?");
-        $app->execute([$application_id]);
-        $application = $app->fetch();
+    $app = $pdo->prepare("SELECT * FROM club_membership_applications WHERE application_id = ?");
+    $app->execute([$application_id]);
+    $application = $app->fetch();
+    
+    if ($application) {
+        $checkMember = $pdo->prepare("SELECT COUNT(*) FROM club_membership WHERE user_id = ? AND status = 'Active'");
+        $checkMember->execute([$application['user_id']]);
+        $existingMembership = $checkMember->fetchColumn();
         
-        if ($application) {
-            $checkMember = $pdo->prepare("SELECT COUNT(*) FROM club_membership WHERE user_id = ? AND status = 'Active'");
-            $checkMember->execute([$application['user_id']]);
-            $existingMembership = $checkMember->fetchColumn();
-            
-            if ($existingMembership > 0) {
-                $error = "This student is already a member of another club. Cannot approve.";
-                header("Location: club_dashboard_committee.php?msg=error&error=already_member");
-                exit();
-            }
-            
-            $pdo->beginTransaction();
-            
-            $update = $pdo->prepare("
-                UPDATE club_membership_applications 
-                SET status = 'Approved', committee_remarks = ?, reviewed_by = ?, reviewed_date = CURDATE()
-                WHERE application_id = ?
-            ");
-            $update->execute([$remarks, $user_id, $application_id]);
-            
-            $insert = $pdo->prepare("
-                INSERT INTO club_membership (club_id, user_id, joinDate, status, application_id)
-                VALUES (?, ?, CURDATE(), 'Active', ?)
-            ");
-            $insert->execute([$club_id, $application['user_id'], $application_id]);
-            
-            $pdo->commit();
-            header("Location: club_dashboard_committee.php?msg=approved");
+        if ($existingMembership > 0) {
+            $error = "This student is already a member of another club. Cannot approve.";
+            header("Location: club_dashboard_committee.php?msg=error&error=already_member");
             exit();
         }
-    } 
-    elseif ($action == 'reject') {
-        $stmt = $pdo->prepare("
+        
+        $pdo->beginTransaction();
+        
+        $update = $pdo->prepare("
             UPDATE club_membership_applications 
-            SET status = 'Rejected', committee_remarks = ?, reviewed_by = ?, reviewed_date = CURDATE()
+            SET status = 'Approved', committee_remarks = ?, reviewed_by = ?, reviewed_date = CURDATE()
             WHERE application_id = ?
         ");
-        $stmt->execute([$remarks, $user_id, $application_id]);
-        header("Location: club_dashboard_committee.php?msg=rejected");
+        $update->execute([$remarks, $user_id, $application_id]);
+        
+        // FIXED: Removed 'application_id' from the insert
+        $insert = $pdo->prepare("
+            INSERT INTO club_membership (club_id, user_id, joinDate, status)
+            VALUES (?, ?, CURDATE(), 'Active')
+        ");
+        $insert->execute([$club_id, $application['user_id']]);
+        
+        $pdo->commit();
+        header("Location: club_dashboard_committee.php?msg=approved");
         exit();
     }
+}
+    elseif ($action == 'reject') {
+    $application_id = (int)$_POST['application_id'];
+    $rejection_reason = trim($_POST['rejection_reason'] ?? '');
+    
+    // Validate
+    if (empty($rejection_reason)) {
+        $error = "Please provide a reason for rejection.";
+        header("Location: club_dashboard_committee.php?msg=error&error=no_reason");
+        exit();
+    }
+    
+    $stmt = $pdo->prepare("
+        UPDATE club_membership_applications 
+        SET status = 'Rejected', 
+            rejection_reason = ?,
+            reviewed_by = ?, 
+            reviewed_date = CURDATE()
+        WHERE application_id = ?
+    ");
+    $stmt->execute([$rejection_reason, $user_id, $application_id]);
+    header("Location: club_dashboard_committee.php?msg=rejected");
+    exit();
+}
 }
 
 $message = '';
@@ -266,12 +280,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <a href="../module3/manage_events.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php') ? 'active' : ''; ?>">
             <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
         </a>
-        
-        <!-- 4. Create Event -->
-        <a href="../module3/create_event.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'create_event.php') ? 'active' : ''; ?>">
-            <i class="fas fa-plus-circle"></i> <span>Create Event</span>
-        </a>
-        
+    
         <!-- 5. Record Attendance (QR Scanner) -->
         <a href="../module4/attendance_management.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_management.php') ? 'active' : ''; ?>">
             <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
@@ -449,7 +458,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <div class="modal fade" id="rejectModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header" style="background: #dc3545; color: white;">
                 <h5 class="modal-title"><i class="fas fa-times-circle"></i> Reject Application</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -458,8 +467,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <input type="hidden" name="application_id" id="reject_app_id">
                     <input type="hidden" name="action" value="reject">
                     <p>Reject application for <strong id="reject_name"></strong>?</p>
-                    <label>Reason for rejection (optional):</label>
-                    <textarea name="remarks" class="form-control" rows="2" placeholder="Reason for rejection..."></textarea>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Reason for Rejection <span class="text-danger">*</span></label>
+                        <textarea name="rejection_reason" class="form-control" rows="3" required 
+                                  placeholder="Please provide a reason for rejection (e.g., Club is full, Insufficient motivation, etc.)"></textarea>
+                        <small class="text-muted">This reason will be visible to the student.</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-danger"><i class="fas fa-times"></i> Reject</button>
@@ -469,6 +483,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
     </div>
 </div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>

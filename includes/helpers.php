@@ -43,22 +43,27 @@ class PointsCalculator {
     }
 
     public function recordPoints($user_id, $event_id, $points) {
-        $stmt = $this->pdo->prepare(
-            "SELECT point_id FROM activity_points WHERE user_id = ? AND event_id = ?"
-        );
-        $stmt->execute([$user_id, $event_id]);
-        $existing = $stmt->fetch();
-
-        if ($existing) {
+        // FIXED: Using UPDATE then INSERT approach (no need for point_id/points_id)
+        try {
+            // Try to update existing record first
             $stmt = $this->pdo->prepare(
-                "UPDATE activity_points SET pointsEarned = ?, awardedDate = NOW() WHERE user_id = ? AND event_id = ?"
+                "UPDATE activity_points SET pointsEarned = ?, awardedDate = NOW() 
+                 WHERE user_id = ? AND event_id = ?"
             );
-            return $stmt->execute([$points, $user_id, $event_id]);
-        } else {
-            $stmt = $this->pdo->prepare(
-                "INSERT INTO activity_points (user_id, event_id, pointsEarned, awardedDate) VALUES (?, ?, ?, NOW())"
-            );
-            return $stmt->execute([$user_id, $event_id, $points]);
+            $stmt->execute([$points, $user_id, $event_id]);
+            
+            // If no rows were updated, insert new record
+            if ($stmt->rowCount() == 0) {
+                $stmt = $this->pdo->prepare(
+                    "INSERT INTO activity_points (user_id, event_id, pointsEarned, awardedDate) 
+                     VALUES (?, ?, ?, NOW())"
+                );
+                return $stmt->execute([$user_id, $event_id, $points]);
+            }
+            return true;
+        } catch (PDOException $e) {
+            error_log("Points recording error: " . $e->getMessage());
+            return false;
         }
     }
 
@@ -129,10 +134,17 @@ class RecognitionLevelDeterminer {
     public function updateRecognitionLevel($user_id, $total_points) {
         $level = $this->determineLevel($total_points);
         try {
-            $stmt = $this->pdo->prepare(
-                "UPDATE users SET recognition_level = ?, points_updated = NOW() WHERE user_id = ?"
-            );
-            $stmt->execute([$level['name'], $user_id]);
+            // Check if recognition_level column exists in users table
+            $stmt = $this->pdo->prepare("SHOW COLUMNS FROM users LIKE 'recognition_level'");
+            $stmt->execute();
+            $column_exists = $stmt->fetch();
+            
+            if ($column_exists) {
+                $stmt = $this->pdo->prepare(
+                    "UPDATE users SET recognition_level = ?, points_updated = NOW() WHERE user_id = ?"
+                );
+                $stmt->execute([$level['name'], $user_id]);
+            }
             return true;
         } catch (PDOException $e) {
             return false;

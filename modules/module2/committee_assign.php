@@ -21,14 +21,42 @@ $currentCommittee = $pdo->prepare("SELECT cc.*, u.name, u.email, u.studentId, cp
 $currentCommittee->execute([$club_id]);
 $committeeList = $currentCommittee->fetchAll();
 
-$availableUsers = $pdo->prepare("SELECT u.user_id, u.name, u.email, u.studentId, u.role_id FROM users u WHERE u.status = 'Active' AND (u.role_id = 2 OR u.role_id = 3) AND u.user_id NOT IN (SELECT user_id FROM club_committee WHERE club_id = ? AND status = 'Active') ORDER BY u.name");
-$availableUsers->execute([$club_id]);
+$availableUsers = $pdo->prepare("
+    SELECT u.user_id, u.name, u.email, u.studentId, u.role_id 
+    FROM users u 
+    WHERE u.status = 'Active' 
+    AND (u.role_id = 2 OR u.role_id = 3) 
+    AND u.user_id NOT IN (
+        SELECT user_id FROM club_committee WHERE status = 'Active'
+    )
+    ORDER BY u.name
+");
+$availableUsers->execute([]);
 $usersList = $availableUsers->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_committee'])) {
     $user_id = (int)$_POST['user_id'];
     $position_id = !empty($_POST['position_id']) ? (int)$_POST['position_id'] : null;
+    
     if ($user_id) {
+        // Check if user is already a committee member in ANY club
+        $checkAnyClub = $pdo->prepare("
+            SELECT c.clubName 
+            FROM club_committee cc 
+            JOIN club c ON cc.club_id = c.club_id 
+            WHERE cc.user_id = ? AND cc.status = 'Active'
+        ");
+        $checkAnyClub->execute([$user_id]);
+        $existingCommittee = $checkAnyClub->fetch();
+        
+        if ($existingCommittee) {
+            // User is already a committee member elsewhere
+            $error_msg = urlencode("This student is already a committee member of " . $existingCommittee['clubName'] . ". They cannot be added to another club's committee.");
+header("Location: committee_assign.php?id=$club_id&error=$error_msg");
+exit();
+        }
+        
+        // Check if user is already in THIS club's committee
         $check = $pdo->prepare("SELECT * FROM club_committee WHERE club_id = ? AND user_id = ?");
         $check->execute([$club_id, $user_id]);
         if (!$check->fetch()) {
@@ -38,9 +66,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_committee'])) {
             $updateRole->execute([$user_id]);
             header("Location: committee_assign.php?id=$club_id&msg=added");
             exit();
+        } else {
+            $error = "This student is already a committee member of this club.";
+            header("Location: committee_assign.php?id=$club_id&error=" . urlencode($error));
+            exit();
         }
     }
 }
+
+// REMOVE COMMITTEE MEMBER
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_committee_id'])) {
+    $committee_id = (int)$_POST['remove_committee_id'];
+    
+    // Get the user_id and club_id BEFORE deleting
+    $stmt = $pdo->prepare("SELECT user_id, club_id FROM club_committee WHERE committee_id = ?");
+    $stmt->execute([$committee_id]);
+    $user = $stmt->fetch();
+    $user_id = $user['user_id'] ?? null;
+    $user_club_id = $user['club_id'] ?? null;
+    
+    if ($user_id) {
+        // Check if user is in any OTHER active committee (excluding this one)
+        $check = $pdo->prepare("
+            SELECT COUNT(*) FROM club_committee 
+            WHERE user_id = ? AND committee_id != ? AND status = 'Active'
+        ");
+        $check->execute([$user_id, $committee_id]);
+        $otherCommittees = $check->fetchColumn();
+        
+        // Delete the committee record
+        $stmt = $pdo->prepare("DELETE FROM club_committee WHERE committee_id = ?");
+        $stmt->execute([$committee_id]);
+        
+        // If no other committees, revert role back to Student (role_id = 3)
+        if ($otherCommittees == 0) {
+            $updateRole = $pdo->prepare("UPDATE users SET role_id = 3 WHERE user_id = ?");
+            $updateRole->execute([$user_id]);
+        }
+    } else {
+        // Just delete if no user found
+        $stmt = $pdo->prepare("DELETE FROM club_committee WHERE committee_id = ?");
+        $stmt->execute([$committee_id]);
+    }
+    
+    header("Location: committee_assign.php?id=$club_id&msg=removed");
+    exit();
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_position'])) {
     $committee_id = (int)$_POST['committee_id'];
@@ -50,6 +122,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_position'])) {
     header("Location: committee_assign.php?id=$club_id&msg=updated");
     exit();
 }
+
+// At the top with other message handling
+$error_message = '';
+if (isset($_GET['error'])) {
+    $error_message = '<div class="alert alert-danger">❌ ' . htmlspecialchars(urldecode($_GET['error'])) . '</div>';
+}
+
 
 $message = '';
 if (isset($_GET['msg'])) {
@@ -131,6 +210,51 @@ $current_page = basename($_SERVER['PHP_SELF']);
     background: var(--umpsa-gold);
     color: var(--umpsa-dark-blue);
 }
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    width: 350px;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.modal-btn-confirm {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+}
+
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+}
+
         .main-content { margin-left: 260px; padding: 20px; }
         .top-nav { background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .welcome-text { font-size: 16px; font-weight: 500; }
@@ -194,6 +318,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 
     <?php echo $message; ?>
+    <?php echo $error_message; ?>
 
     <div class="row">
         <div class="col-md-7">
@@ -211,7 +336,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <form method="POST" class="mt-2"><input type="hidden" name="committee_id" value="<?php echo $cm['committee_id']; ?>"><div class="input-group input-group-sm"><select name="position_id" class="form-select form-select-sm"><option value="">-- Change --</option><?php foreach ($positions as $pos): ?><option value="<?php echo $pos['position_id']; ?>" <?php echo ($cm['position_id'] == $pos['position_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($pos['positionName']); ?></option><?php endforeach; ?></select><button type="submit" name="update_position" class="btn btn-sm btn-outline-primary">Update</button></div></form>
                             </td>
                             <td><?php echo date('d M Y', strtotime($cm['assignedDate'])); ?></td>
-                            <td><a href="committee_remove.php?committee_id=<?php echo $cm['committee_id']; ?>&club_id=<?php echo $club_id; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Remove <?php echo htmlspecialchars($cm['name']); ?>?')"><i class="fas fa-trash"></i> Remove</a></td></tr>
+                            <td>
+    <button type="button"
+        class="btn btn-sm btn-danger"
+        onclick="openRemoveModal(<?php echo $cm['committee_id']; ?>)">
+        <i class="fas fa-trash"></i> Remove
+    </button>
+</td>
                         <?php endforeach; ?></tbody>
                     </table></div>
                 <?php endif; ?>
@@ -230,6 +361,49 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
     </div>
 </div>
+
+<form method="POST" id="removeCommitteeForm">
+    <input type="hidden" name="remove_committee_id" id="remove_committee_id">
+</form>
+
+<div id="removeModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-exclamation-triangle" style="font-size:50px;color:#dc3545;"></i>
+
+        <h4>Remove Committee Member?</h4>
+        <p>This will deactivate the member from the committee list.</p>
+
+        <div class="modal-buttons">
+            <button class="modal-btn-confirm" onclick="confirmRemove()">Remove</button>
+            <button class="modal-btn-cancel" onclick="closeRemoveModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedCommitteeId = null;
+
+function openRemoveModal(id) {
+    selectedCommitteeId = id;
+    document.getElementById('removeModal').style.display = 'flex';
+}
+
+function closeRemoveModal() {
+    document.getElementById('removeModal').style.display = 'none';
+    selectedCommitteeId = null;
+}
+
+function confirmRemove() {
+    if (!selectedCommitteeId) return;
+    
+    // Set the hidden input value
+    document.getElementById('remove_committee_id').value = selectedCommitteeId;
+    
+    // Submit the form directly
+    document.getElementById('removeCommitteeForm').submit();
+}
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

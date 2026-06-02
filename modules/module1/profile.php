@@ -233,16 +233,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
                 <i class="fas fa-building"></i> <span>My Club</span>
             </a>
             <a href="../module3/manage_events.php">
-                <i class="fas fa-calendar-alt"></i> <span>Events</span>
-            </a>
-            <a href="../module3/create_event.php">
-                <i class="fas fa-calendar-plus"></i> <span>Create Event</span>
+                <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
             </a>
             <a href="../module4/attendance_management.php">
                 <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
             </a>
             <a href="../module4/attendance_dashboard.php">
-                <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+                <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
             </a>
             <a href="../module4/generate_report.php">
                 <i class="fas fa-file-alt"></i> <span>Reports</span>

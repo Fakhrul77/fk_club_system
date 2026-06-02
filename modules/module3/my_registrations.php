@@ -17,25 +17,31 @@ if (isset($_GET['cancel'])) {
     $stmt->execute([$user_id, $event_id]);
     
     if ($stmt->fetch()) {
-        $pdo->prepare("UPDATE event_registration SET status = 'Cancelled', cancellation_date = NOW() WHERE user_id = ? AND event_id = ?")
-            ->execute([$user_id, $event_id]);
-        
-        // Update event participant count
-        $pdo->prepare("UPDATE event SET current_participant = current_participant - 1 WHERE event_id = ?")
+    $pdo->prepare("UPDATE event_registration SET status = 'Cancelled', cancellation_date = NOW() WHERE user_id = ? AND event_id = ?")
+        ->execute([$user_id, $event_id]);
+
+    // Update event participant count
+    $pdo->prepare("UPDATE event SET current_participant = current_participant - 1 WHERE event_id = ?")
+        ->execute([$event_id]);
+
+    // Promote from waiting list
+    $waiting_stmt = $pdo->prepare("SELECT user_id FROM waiting_list WHERE event_id = ? ORDER BY position ASC LIMIT 1");
+    $waiting_stmt->execute([$event_id]);
+    $waiting_user = $waiting_stmt->fetch();
+
+    if ($waiting_user) {
+        $pdo->prepare("DELETE FROM waiting_list WHERE event_id = ? AND user_id = ?")
+            ->execute([$event_id, $waiting_user['user_id']]);
+
+        $pdo->prepare("INSERT INTO event_registration (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Confirmed')")
+            ->execute([$waiting_user['user_id'], $event_id]);
+
+        $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")
             ->execute([$event_id]);
-        
-        // Promote from waiting list
-        $waiting_stmt = $pdo->prepare("SELECT user_id FROM waiting_list WHERE event_id = ? ORDER BY position ASC LIMIT 1");
-        $waiting_stmt->execute([$event_id]);
-        $waiting_user = $waiting_stmt->fetch();
-        
-        if ($waiting_user) {
-            $pdo->prepare("DELETE FROM waiting_list WHERE event_id = ? AND user_id = ?")->execute([$event_id, $waiting_user['user_id']]);
-            $pdo->prepare("INSERT INTO event_registration (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Confirmed')")
-                ->execute([$waiting_user['user_id'], $event_id]);
-            $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")->execute([$event_id]);
-        }
     }
+
+    $_SESSION['success_message'] = "Your registration has been cancelled successfully.";
+}
     header("Location: my_registrations.php");
     exit();
 }
@@ -66,26 +72,62 @@ $registrations = $stmt->fetchAll();
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
         .sidebar {
-            position: fixed; top: 0; left: 0; height: 100%; width: 260px;
-            background: var(--umpsa-dark-blue); color: white; z-index: 1000;
-        }
-        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .sidebar-header h4 { margin: 0; font-size: 18px; }
-        .sidebar-menu { padding: 20px 0; }
-        .sidebar-menu a {
-            display: block; padding: 12px 25px; color: rgba(255,255,255,0.8);
-            text-decoration: none; transition: all 0.3s; font-size: 14px;
-        }
-        .sidebar-header p {
-         font-size: 11px;
-         opacity: 0.7;
-         margin-top: 5px;
-         }
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 260px;
+    background: var(--umpsa-dark-blue);
+    color: white;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
 
-        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
-        .sidebar-menu a i { margin-right: 10px; width: 20px; }
-        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
-        
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header h4 {
+    margin: 10px 0 0 0;
+    font-size: 18px;
+}
+
+.sidebar-header p {
+    margin: 5px 0 0 0;
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.sidebar-menu {
+    padding: 20px 0;
+}
+
+.sidebar-menu a {
+    display: block;
+    padding: 12px 25px;
+    margin: 5px 0;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(253,184,19,0.2);
+    color: white;
+}
+
+.sidebar-menu a i {
+    margin-right: 10px;
+    width: 20px;
+}
+
+.sidebar-menu a.active {
+    background: var(--umpsa-gold);
+    color: var(--umpsa-dark-blue);
+}
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -154,6 +196,16 @@ $registrations = $stmt->fetchAll();
 
     <div class="table-card">
         <h3><i class="fas fa-list-alt"></i> My Event Registrations</h3>
+        <?php if (isset($_SESSION['success_message'])): ?>
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        <i class="fas fa-check-circle"></i>
+        <?php
+            echo $_SESSION['success_message'];
+            unset($_SESSION['success_message']);
+        ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
         
         <div class="table-responsive mt-3">
             <table class="table table-hover">
@@ -177,8 +229,8 @@ $registrations = $stmt->fetchAll();
                         </td>
                         <td>
                             <?php if ($reg['status'] == 'Confirmed' && strtotime($reg['event_date']) > time()): ?>
-                                <button class="action-btn" onclick="confirmCancel(<?php echo $reg['event_id']; ?>)" title="Cancel Registration">
-                                    <i class="fas fa-times-circle"></i> Cancel
+                                <button class="action-btn" onclick="openCancelModal(<?php echo $reg['event_id']; ?>)" title="Cancel Registration">
+                                <i class="fas fa-times-circle"></i> Cancel
                                 </button>
                             <?php endif; ?>
                         </td>
@@ -190,12 +242,63 @@ $registrations = $stmt->fetchAll();
     </div>
 </div>
 
+<!-- Cancel Confirmation Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 14px; overflow: hidden;">
+
+            <!-- Header -->
+            <div style="background: var(--umpsa-dark-blue); color: white; padding: 15px;">
+                <h5 style="margin: 0; font-weight: 600;">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--umpsa-gold);"></i>
+                    Confirm Cancellation
+                </h5>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 20px; font-size: 14px; color: #333;">
+                <p style="margin-bottom: 10px;">
+                    You are about to cancel your event registration.
+                </p>
+
+                <div style="background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 13px;">
+                    ⚠️ Once cancelled, your spot may be given to another student on the waiting list.
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Keep Registration
+                </button>
+
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">
+                    Yes, Cancel
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
 <script>
-function confirmCancel(eventId) {
-    if(confirm('Are you sure you want to cancel your registration for this event?')) {
-        window.location.href = '?cancel=' + eventId;
-    }
+let selectedEventId = null;
+
+function openCancelModal(eventId) {
+    selectedEventId = eventId;
+
+    const modal = new bootstrap.Modal(document.getElementById('cancelModal'));
+    modal.show();
 }
+
+document.getElementById('confirmCancelBtn').addEventListener('click', function () {
+    if (selectedEventId) {
+        window.location.href = '?cancel=' + selectedEventId;
+    }
+});
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

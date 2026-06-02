@@ -21,16 +21,42 @@ if ($user_role == 2) {
 }
 
 // Handle event deletion
-if (isset($_GET['delete'])) {
-    $event_id = (int)$_GET['delete'];
-    $pdo->prepare("DELETE FROM event_registration WHERE event_id = ?")->execute([$event_id]);
-    $pdo->prepare("DELETE FROM waiting_list WHERE event_id = ?")->execute([$event_id]);
-    $stmt = $pdo->prepare("DELETE FROM event WHERE event_id = ?");
-    $stmt->execute([$event_id]);
-    header("Location: manage_events.php");
-    exit();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_event_id'])) {
+    $event_id = (int)$_POST['delete_event_id'];
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Get all registration_ids for this event
+        $stmt = $pdo->prepare("SELECT registration_id FROM event_registration WHERE event_id = ?");
+        $stmt->execute([$event_id]);
+        $registrations = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Delete attendance records for each registration
+        if (!empty($registrations)) {
+            $placeholders = implode(',', array_fill(0, count($registrations), '?'));
+            $stmt = $pdo->prepare("DELETE FROM attendance WHERE registration_id IN ($placeholders)");
+            $stmt->execute($registrations);
+        }
+        
+        // Delete event registrations
+        $pdo->prepare("DELETE FROM event_registration WHERE event_id = ?")->execute([$event_id]);
+        
+        // Delete waiting list
+        $pdo->prepare("DELETE FROM waiting_list WHERE event_id = ?")->execute([$event_id]);
+        
+        // Delete event
+        $pdo->prepare("DELETE FROM event WHERE event_id = ?")->execute([$event_id]);
+        
+        $pdo->commit();
+        header("Location: manage_events.php?msg=deleted");
+        exit();
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        header("Location: manage_events.php?msg=error");
+        exit();
+    }
 }
-
 // Handle event status update
 if (isset($_GET['status']) && isset($_GET['event_id'])) {
     $status = $_GET['status'];
@@ -40,6 +66,7 @@ if (isset($_GET['status']) && isset($_GET['event_id'])) {
     header("Location: manage_events.php");
     exit();
 }
+
 
 // Get events based on role
 if ($user_role == 1) {
@@ -133,6 +160,49 @@ $events = $stmt->fetchAll();
     background: var(--umpsa-gold);
     color: var(--umpsa-dark-blue);
 }
+
+/* Delete Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    padding: 25px;
+    width: 380px;
+    text-align: center;
+}
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+.modal-btn-confirm {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -169,6 +239,8 @@ $events = $stmt->fetchAll();
 </head>
 <body>
 
+<!-- ========== DYNAMIC SIDEBAR BASED ON ROLE ========== -->
+<?php if ($user_role == 1): // ADMIN SIDEBAR ?>
 <div class="sidebar">
     <div class="sidebar-header">
         <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
@@ -176,47 +248,61 @@ $events = $stmt->fetchAll();
         <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
-        <!-- 1. Dashboard -->
-        <a href="../module1/dashboard_committee.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'dashboard_committee.php') ? 'active' : ''; ?>">
+        <a href="../module1/dashboard_admin.php">
             <i class="fas fa-home"></i> <span>Dashboard</span>
         </a>
-        
-        <!-- 2. My Club -->
-        <a href="../module2/club_dashboard_committee.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_committee.php') ? 'active' : ''; ?>">
-            <i class="fas fa-building"></i> <span>My Club</span>
+        <a href="../module1/manage_users.php">
+            <i class="fas fa-users"></i> <span>Manage Users</span>
         </a>
-        
-        <!-- 3. Manage Events -->
-        <a href="../module3/manage_events.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php') ? 'active' : ''; ?>">
-            <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
+        <a href="../module2/club_dashboard_admin.php">
+            <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
-        
-        <!-- 4. Create Event -->
-        <a href="../module3/create_event.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'create_event.php') ? 'active' : ''; ?>">
-            <i class="fas fa-plus-circle"></i> <span>Create Event</span>
+        <a href="../module3/manage_events.php" class="active">
+            <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>
-        
-        <!-- 5. Record Attendance (QR Scanner) -->
-        <a href="../module4/attendance_management.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_management.php') ? 'active' : ''; ?>">
-            <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
+        <a href="../module4/attendance_dashboard.php">
+            <i class="fas fa-chart-bar"></i> <span>Attendance</span>
         </a>
-        
-        <!-- 6. Attendance Dashboard -->
-        <a href="../module4/attendance_dashboard.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_dashboard.php') ? 'active' : ''; ?>">
-            <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
-        </a>
-        
-        <!-- 7. Reports -->
-        <a href="../module4/generate_report.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'generate_report.php') ? 'active' : ''; ?>">
+        <a href="../module4/generate_report.php">
             <i class="fas fa-file-alt"></i> <span>Reports</span>
         </a>
-        
-        <!-- 8. Profile -->
-        <a href="../module1/profile.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'profile.php') ? 'active' : ''; ?>">
+        <a href="../module1/profile.php">
             <i class="fas fa-user"></i> <span>Profile</span>
         </a>
     </div>
 </div>
+<?php else: // COMMITTEE SIDEBAR ?>
+<div class="sidebar">
+    <div class="sidebar-header">
+        <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+        <h4>FK Club System</h4>
+        <p>Faculty of Computing</p>
+    </div>
+    <div class="sidebar-menu">
+        <a href="../module1/dashboard_committee.php">
+            <i class="fas fa-home"></i> <span>Dashboard</span>
+        </a>
+        <a href="../module2/club_dashboard_committee.php">
+            <i class="fas fa-building"></i> <span>My Club</span>
+        </a>
+        <a href="../module3/manage_events.php" class="active">
+            <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
+        </a>
+        <a href="../module4/attendance_management.php">
+            <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
+        </a>
+        <a href="../module4/attendance_dashboard.php">
+            <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
+        </a>
+        <a href="../module4/generate_report.php">
+            <i class="fas fa-file-alt"></i> <span>Reports</span>
+        </a>
+        <a href="../module1/profile.php">
+            <i class="fas fa-user"></i> <span>Profile</span>
+        </a>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="main-content">
     <div class="top-nav">
@@ -260,7 +346,10 @@ $events = $stmt->fetchAll();
                             <a href="edit_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="Edit"><i class="fas fa-edit"></i></a>
                             <a href="view_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="View"><i class="fas fa-eye"></i></a>
                             <button class="action-btn" onclick="changeStatus(<?php echo $event['event_id']; ?>)" title="Change Status"><i class="fas fa-sync-alt"></i></button>
-                            <button class="action-btn" onclick="confirmDelete(<?php echo $event['event_id']; ?>)" title="Delete"><i class="fas fa-trash-alt" style="color:#dc3545;"></i></button>
+                            <button class="action-btn" type="button"
+        onclick="openDeleteModal(<?php echo $event['event_id']; ?>)">
+    <i class="fas fa-trash-alt" style="color:#dc3545;"></i>
+</button>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -270,20 +359,100 @@ $events = $stmt->fetchAll();
     </div>
 </div>
 
+<form method="POST" id="deleteEventForm">
+    <input type="hidden" name="delete_event_id" id="delete_event_id">
+</form>
+
+<form method="GET" id="statusForm">
+    <input type="hidden" name="event_id" id="status_event_id">
+    <input type="hidden" name="status" id="status_value">
+</form>
+
+    <div id="deleteModal" class="modal-overlay">
+        <div class="modal-content">
+            <i class="fas fa-exclamation-triangle" style="font-size:50px;color:#dc3545;"></i>
+            <h4>Delete Event?</h4>
+            <p>This will remove event and all registrations permanently.</p>
+
+            <div class="modal-buttons">
+                <button class="modal-btn-confirm" onclick="confirmDelete()">Delete</button>
+                <button class="modal-btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sync-alt" style="font-size:50px;color:#003B5C;"></i>
+
+        <h4>Change Event Status</h4>
+
+        <select id="statusSelect" class="form-select" style="margin:15px 0;">
+            <option value="">-- Select Status --</option>
+            <option value="UPCOMING">Upcoming</option>
+            <option value="ONGOING">Ongoing</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+        </select>
+
+        <div class="modal-buttons">
+            <button class="modal-btn-confirm" onclick="confirmStatusChange()">Save</button>
+            <button class="modal-btn-cancel" onclick="closeStatusModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
-function confirmDelete(id) {
-    if(confirm('Are you sure you want to delete this event? All registrations will be lost.')) {
-        window.location.href = '?delete=' + id;
-    }
+let selectedStatusEventId = null;
+
+// OPEN STATUS MODAL
+function changeStatus(id) {
+    selectedStatusEventId = id;
+    document.getElementById('statusModal').style.display = 'flex';
 }
 
-function changeStatus(id) {
-    let status = prompt('Enter new status (UPCOMING, ONGOING, COMPLETED, CANCELLED):');
-    if(status && ['UPCOMING','ONGOING','COMPLETED','CANCELLED'].includes(status.toUpperCase())) {
-        window.location.href = '?status=' + status.toUpperCase() + '&event_id=' + id;
-    } else if(status) {
-        alert('Invalid status!');
+// CLOSE STATUS MODAL
+function closeStatusModal() {
+    document.getElementById('statusModal').style.display = 'none';
+    selectedStatusEventId = null;
+    document.getElementById('statusSelect').value = "";
+}
+
+// CONFIRM STATUS UPDATE
+function confirmStatusChange() {
+    let status = document.getElementById('statusSelect').value;
+
+    if (!status) {
+        alert("Please select a status");
+        return;
     }
+
+    document.getElementById('status_event_id').value = selectedStatusEventId;
+    document.getElementById('status_value').value = status;
+
+    document.getElementById('statusForm').submit();
+}
+
+let selectedEventId = null;
+
+function openDeleteModal(id) {
+    selectedEventId = id;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    selectedEventId = null;
+}
+
+
+function confirmDelete() {
+    if (!selectedEventId) return;
+
+    document.getElementById('delete_event_id').value = selectedEventId;
+    document.getElementById('deleteModal').style.display = 'none';
+    document.getElementById('deleteEventForm').submit();
 }
 </script>
 </body>

@@ -111,32 +111,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         if ($stmt->rowCount() > 0) {
             $error = "Attendance already recorded for this student.";
         } else {
-            $stmt = $pdo->prepare(
-                "INSERT INTO attendance (registration_id, event_id, attendanceStatus, checkInTime) VALUES (?, ?, 'Present', NOW())"
-            );
-            if ($stmt->execute([$registration_id, $scanned_event_id])) {
-                // Get student info for feedback
+            // Get user_id from registration
+            $getUser = $pdo->prepare("SELECT user_id FROM event_registration WHERE registration_id = ?");
+            $getUser->execute([$registration_id]);
+            $reg = $getUser->fetch();
+            $actual_user_id = $reg['user_id'] ?? null;
+
+            if ($actual_user_id) {
                 $stmt = $pdo->prepare(
-                    "SELECT u.*, er.user_id AS reg_user_id FROM event_registration er JOIN users u ON er.user_id = u.user_id WHERE er.registration_id = ?"
+                    "INSERT INTO attendance (registration_id, event_id, attendanceStatus, checkInTime, user_id) 
+                     VALUES (?, ?, 'Present', NOW(), ?)"
                 );
-                $stmt->execute([$registration_id]);
-                $student = $stmt->fetch();
-                if ($student) {
-                    $student['matrix_number'] = $student['matrix_number'] ?? '';
-                    $calculator = new PointsCalculator($pdo);
-                    $points = $calculator->calculateAttendancePoints($student['reg_user_id'], $scanned_event_id);
-                    $calculator->recordPoints($student['reg_user_id'], $scanned_event_id, $points);
-                    $total = $calculator->getTotalPoints($student['reg_user_id']);
-                    $recognizer = new RecognitionLevelDeterminer($pdo);
-                    $recognizer->updateRecognitionLevel($student['reg_user_id'], $total);
-                    $success = "Attendance recorded for <strong>" . htmlspecialchars($student['name']) . "</strong>"
-                             . " (" . htmlspecialchars($student['matrix_number']) . ")"
-                             . " — <strong>{$points} pts</strong> awarded.";
+                if ($stmt->execute([$registration_id, $scanned_event_id, $actual_user_id])) {
+                    // Get student info for feedback
+                    $stmt = $pdo->prepare(
+                        "SELECT u.*, er.user_id AS reg_user_id 
+                         FROM event_registration er 
+                         JOIN users u ON er.user_id = u.user_id 
+                         WHERE er.registration_id = ?"
+                    );
+                    $stmt->execute([$registration_id]);
+                    $student = $stmt->fetch();
+                    if ($student) {
+                        $calculator = new PointsCalculator($pdo);
+                        $points = $calculator->calculateAttendancePoints($student['reg_user_id'], $scanned_event_id);
+                        $calculator->recordPoints($student['reg_user_id'], $scanned_event_id, $points);
+                        $total = $calculator->getTotalPoints($student['reg_user_id']);
+                        $recognizer = new RecognitionLevelDeterminer($pdo);
+                        $recognizer->updateRecognitionLevel($student['reg_user_id'], $total);
+                        $success = "Attendance recorded for <strong>" . htmlspecialchars($student['name']) . "</strong>"
+                                 . " (" . htmlspecialchars($student['matrix_number'] ?? $student['studentId']) . ")"
+                                 . " — <strong>{$points} pts</strong> awarded.";
+                    } else {
+                        $success = "Attendance recorded successfully.";
+                    }
                 } else {
-                    $success = "Attendance recorded successfully.";
+                    $error = "Failed to record attendance. Please try again.";
                 }
             } else {
-                $error = "Failed to record attendance. Please try again.";
+                $error = "Could not find user for this registration.";
             }
         }
     }
@@ -150,34 +163,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $scanned_event_id = $_POST['event_id'] ?? null;
 
     if ($registration_id) {
-        $stmt = $pdo->prepare("SELECT * FROM attendance WHERE registration_id = ? AND event_id = ?");
-        $stmt->execute([$registration_id, $scanned_event_id]);
+        // Get user_id from registration
+        $getUser = $pdo->prepare("SELECT user_id FROM event_registration WHERE registration_id = ?");
+        $getUser->execute([$registration_id]);
+        $reg = $getUser->fetch();
+        $actual_user_id = $reg['user_id'] ?? null;
 
-        if ($stmt->rowCount() > 0) {
-            $stmt = $pdo->prepare("UPDATE attendance SET attendanceStatus = ?, checkInTime = NOW() WHERE registration_id = ? AND event_id = ?");
-            $stmt->execute([$attendance_status, $registration_id, $scanned_event_id]);
-            $success = "Attendance updated successfully";
+        if (!$actual_user_id) {
+            $error = "Could not find user for this registration.";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO attendance (registration_id, event_id, attendanceStatus, checkInTime) VALUES (?, ?, ?, NOW())");
-            if ($stmt->execute([$registration_id, $scanned_event_id, $attendance_status])) {
-                $success = "Attendance recorded successfully";
-            } else {
-                $error = "Failed to record attendance";
-            }
-        }
+            $stmt = $pdo->prepare("SELECT * FROM attendance WHERE registration_id = ? AND event_id = ?");
+            $stmt->execute([$registration_id, $scanned_event_id]);
 
-        // Trigger points calculation if marked Present
-        if (!$error && $attendance_status === 'Present') {
-            $stmt = $pdo->prepare("SELECT user_id FROM event_registration WHERE registration_id = ?");
-            $stmt->execute([$registration_id]);
-            $reg = $stmt->fetch();
-            if ($reg) {
+            if ($stmt->rowCount() > 0) {
+                $stmt = $pdo->prepare("UPDATE attendance SET attendanceStatus = ?, checkInTime = NOW() WHERE registration_id = ? AND event_id = ?");
+                $stmt->execute([$attendance_status, $registration_id, $scanned_event_id]);
+                $success = "Attendance updated successfully";
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO attendance (registration_id, event_id, attendanceStatus, checkInTime, user_id) VALUES (?, ?, ?, NOW(), ?)");
+                if ($stmt->execute([$registration_id, $scanned_event_id, $attendance_status, $actual_user_id])) {
+                    $success = "Attendance recorded successfully";
+                } else {
+                    $error = "Failed to record attendance";
+                }
+            }
+
+            // Trigger points calculation if marked Present
+            if (!$error && $attendance_status === 'Present') {
                 $calculator = new PointsCalculator($pdo);
-                $points = $calculator->calculateAttendancePoints($reg['user_id'], $scanned_event_id);
-                $calculator->recordPoints($reg['user_id'], $scanned_event_id, $points);
-                $total = $calculator->getTotalPoints($reg['user_id']);
+                $points = $calculator->calculateAttendancePoints($actual_user_id, $scanned_event_id);
+                $calculator->recordPoints($actual_user_id, $scanned_event_id, $points);
+                $total = $calculator->getTotalPoints($actual_user_id);
                 $recognizer = new RecognitionLevelDeterminer($pdo);
-                $recognizer->updateRecognitionLevel($reg['user_id'], $total);
+                $recognizer->updateRecognitionLevel($actual_user_id, $total);
                 $success .= " — <strong>{$points} pts</strong> awarded.";
             }
         }
@@ -381,16 +399,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 <i class="fas fa-building"></i> <span>My Club</span>
             </a>
             <a href="../module3/manage_events.php">
-                <i class="fas fa-calendar-alt"></i> <span>Events</span>
-            </a>
-            <a href="../module3/create_event.php">
-                <i class="fas fa-calendar-plus"></i> <span>Create Event</span>
+                <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
             </a>
             <a href="attendance_management.php" class="active">
                 <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
             </a>
             <a href="attendance_dashboard.php">
-                <i class="fas fa-chart-bar"></i> <span>Attendance</span>
+                <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
             </a>
             <a href="generate_report.php">
                 <i class="fas fa-file-alt"></i> <span>Reports</span>

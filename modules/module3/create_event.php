@@ -190,17 +190,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <a href="../module2/club_redirect.php">
             <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
-        <a href="manage_events.php">
+        <a href="manage_events.php" class="active">
             <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>
-        <a href="create_event.php" class="active">
-            <i class="fas fa-plus-circle"></i> <span>Create Event</span>
-        </a>
-        <a href="../module4/attendance_scanner.php">
-            <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
+        <a href="../module4/attendance_dashboard.php">
+            <i class="fas fa-chart-bar"></i> <span>Attendance</span>
         </a>
         <a href="../module4/generate_report.php">
-            <i class="fas fa-chart-bar"></i> <span>Reports</span>
+            <i class="fas fa-file-alt"></i> <span>Reports</span>
         </a>
         <a href="../module1/profile.php">
             <i class="fas fa-user"></i> <span>Profile</span>
@@ -213,17 +210,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <a href="../module2/club_dashboard_committee.php">
             <i class="fas fa-building"></i> <span>My Club</span>
         </a>
-        <a href="manage_events.php">
-            <i class="fas fa-calendar-alt"></i> <span>Events</span>
+        <a href="manage_events.php" class="active">
+            <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
         </a>
-        <a href="create_event.php" class="active">
-            <i class="fas fa-plus-circle"></i> <span>Create Event</span>
-        </a>
-        <a href="../module4/attendance_scanner.php">
+        <a href="../module4/attendance_management.php">
             <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
         </a>
+        <a href="../module4/attendance_dashboard.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_dashboard.php') ? 'active' : ''; ?>">
+            <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
+        </a>
         <a href="../module4/reports_dashboard.php">
-            <i class="fas fa-chart-bar"></i> <span>Reports</span>
+            <i class="fas fa-file-alt"></i> <span>Reports</span>
         </a>
         <a href="../module1/profile.php">
             <i class="fas fa-user"></i> <span>Profile</span>

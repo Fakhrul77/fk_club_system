@@ -35,7 +35,6 @@ $clubs = $pdo->query("SELECT * FROM club WHERE status = 'Active'")->fetchAll();
 $positions = $pdo->query("SELECT * FROM committee_position")->fetchAll();
 
 // Handle form submission
-$success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -95,15 +94,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $pdo->prepare("DELETE FROM club_committee WHERE user_id = ?")->execute([$user_id]);
                 }
                 
-                $success = "User updated successfully!";
+                // Redirect after update
+                header("Location: manage_users.php?msg=updated");
+                exit();
             } else {
-                // Check if email exists
+                // Create new user
                 $check = $pdo->prepare("SELECT * FROM users WHERE email = ?");
                 $check->execute([$email]);
                 if ($check->fetch()) {
                     $error = "Email already exists!";
                 } else {
-                    // Create new user with temporary password
                     $temp_password = 'password123';
                     $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
                     
@@ -120,14 +120,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $insert->execute([$new_user_id, $club_id, $position_id]);
                     }
                     
-                    $success = "User created successfully! Temporary password: password123";
+                    header("Location: manage_users.php?msg=added");
+                    exit();
                 }
-            }
-            
-            if ($is_edit && empty($error)) {
-                $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
-                $stmt->execute([$user_id]);
-                $user_data = $stmt->fetch();
             }
         } catch(PDOException $e) {
             $error = "Database error: " . $e->getMessage();
@@ -171,62 +166,33 @@ if ($user_data) {
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
         .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 260px;
-    background: var(--umpsa-dark-blue);
-    color: white;
-    z-index: 1000;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-}
-
-.sidebar-header {
-    padding: 20px;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.sidebar-header h4 {
-    margin: 10px 0 0 0;
-    font-size: 18px;
-}
-
-.sidebar-header p {
-    margin: 5px 0 0 0;
-    font-size: 11px;
-    opacity: 0.7;
-}
-
-.sidebar-menu {
-    padding: 20px 0;
-}
-
-.sidebar-menu a {
-    display: block;
-    padding: 12px 25px;
-    margin: 5px 0;
-    color: rgba(255,255,255,0.8);
-    text-decoration: none;
-    transition: all 0.3s;
-    font-size: 14px;
-}
-
-.sidebar-menu a:hover {
-    background: rgba(253,184,19,0.2);
-    color: white;
-}
-
-.sidebar-menu a i {
-    margin-right: 10px;
-    width: 20px;
-}
-
-.sidebar-menu a.active {
-    background: var(--umpsa-gold);
-    color: var(--umpsa-dark-blue);
-}
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 260px;
+            background: var(--umpsa-dark-blue);
+            color: white;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h4 { margin: 0; font-size: 18px; }
+        .sidebar-header p { font-size: 11px; opacity: 0.7; margin-top: 5px; }
+        .sidebar-menu { padding: 20px 0; }
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 25px;
+            margin: 5px 0;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
+        .sidebar-menu a i { margin-right: 10px; width: 20px; }
+        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -269,11 +235,6 @@ if ($user_data) {
             border-radius: 8px;
             font-size: 14px;
         }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: var(--umpsa-gold);
-            box-shadow: 0 0 0 3px rgba(253,184,19,0.1);
-        }
         .full-width { grid-column: span 2; }
         .radio-group { display: flex; gap: 20px; align-items: center; padding-top: 8px; }
         .radio-group label { display: flex; align-items: center; gap: 5px; font-weight: normal; margin: 0; }
@@ -311,27 +272,13 @@ if ($user_data) {
         <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
-        <a href="../module1/dashboard_admin.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'dashboard_admin.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-home"></i> <span>Dashboard</span>
-        </a>
-        <a href="../module1/manage_users.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_users.php' || basename($_SERVER['PHP_SELF']) == 'add_edit_user.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-users"></i> <span>Manage Users</span>
-        </a>
-        <a href="../module2/club_redirect.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_admin.php' || basename($_SERVER['PHP_SELF']) == 'club_edit.php' || basename($_SERVER['PHP_SELF']) == 'club_create.php' || basename($_SERVER['PHP_SELF']) == 'committee_assign.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-building"></i> <span>Manage Clubs</span>
-        </a>
-        <a href="../module3/manage_events.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php' || basename($_SERVER['PHP_SELF']) == 'create_event.php' || basename($_SERVER['PHP_SELF']) == 'edit_event.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-calendar-alt"></i> <span>Events</span>
-        </a>
-        <a href="../module4/attendance_dashboard.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_dashboard.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-chart-bar"></i> <span>Attendance</span>
-        </a>
-        <a href="../module4/generate_report.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'generate_report.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-file-alt"></i> <span>Reports</span>
-        </a>
-        <a href="../module1/profile.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'profile.php') ? 'class="active"' : ''; ?>>
-            <i class="fas fa-user"></i> <span>Profile</span>
-        </a>
+        <a href="../module1/dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
+        <a href="../module1/manage_users.php" class="active"><i class="fas fa-users"></i> <span>Manage Users</span></a>
+        <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
+        <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
+        <a href="../module4/attendance_dashboard.php"><i class="fas fa-chart-bar"></i> <span>Attendance</span></a>
+        <a href="../module4/generate_report.php"><i class="fas fa-file-alt"></i> <span>Reports</span></a>
+        <a href="../module1/profile.php"><i class="fas fa-user"></i> <span>Profile</span></a>
     </div>
 </div>
 
@@ -350,49 +297,45 @@ if ($user_data) {
             <p class="text-muted mt-2">Fill in the user details below</p>
         </div>
 
-        <?php if ($success): ?>
-            <div class="alert-success"><i class="fas fa-check-circle"></i> <?php echo $success; ?></div>
-        <?php endif; ?>
-
         <?php if ($error): ?>
             <div class="alert-error"><i class="fas fa-exclamation-circle"></i> <?php echo $error; ?></div>
         <?php endif; ?>
 
         <form method="POST">
             <div class="form-grid">
-                <!-- STUDENT ID FIELD (For Student and Committee) -->
+                <!-- STUDENT ID FIELD -->
                 <div class="form-group student-field" id="studentIdField">
                     <label><i class="fas fa-id-card"></i> Student ID</label>
                     <input type="text" name="student_id" value="<?php echo htmlspecialchars($display_student_id); ?>" placeholder="e.g., CS23001">
                     <div class="info-text">For students and committee members</div>
                 </div>
                 
-                <!-- STAFF ID FIELD (For Admin) -->
+                <!-- STAFF ID FIELD -->
                 <div class="form-group admin-field" id="staffIdField">
                     <label><i class="fas fa-id-badge"></i> Staff ID</label>
                     <input type="text" name="staff_id" value="<?php echo htmlspecialchars($display_staff_id); ?>" placeholder="e.g., FK001">
                     <div class="info-text">For administrator/staff only</div>
                 </div>
                 
-                <!-- Full Name (All roles) -->
+                <!-- Full Name -->
                 <div class="form-group">
                     <label class="required"><i class="fas fa-user"></i> Full Name</label>
                     <input type="text" name="name" value="<?php echo htmlspecialchars($user_data['name'] ?? ''); ?>" placeholder="Enter full name" required>
                 </div>
                 
-                <!-- Email (All roles) -->
+                <!-- Email -->
                 <div class="form-group">
                     <label class="required"><i class="fas fa-envelope"></i> Email Address</label>
                     <input type="email" name="email" value="<?php echo htmlspecialchars($user_data['email'] ?? ''); ?>" placeholder="Enter email address" required>
                 </div>
                 
-                <!-- Phone (All roles) -->
+                <!-- Phone -->
                 <div class="form-group">
                     <label><i class="fas fa-phone"></i> Phone Number</label>
                     <input type="tel" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="e.g., 012-3456789">
                 </div>
                 
-                <!-- Programme - Only for Student and Committee -->
+                <!-- Programme -->
                 <div class="form-group student-field" id="programmeField">
                     <label><i class="fas fa-graduation-cap"></i> Programme</label>
                     <select name="programme">
@@ -402,10 +345,9 @@ if ($user_data) {
                         <option value="Software Engineering" <?php echo (($user_data['programme'] ?? '') == 'Software Engineering') ? 'selected' : ''; ?>>Software Engineering</option>
                         <option value="Data Science" <?php echo (($user_data['programme'] ?? '') == 'Data Science') ? 'selected' : ''; ?>>Data Science</option>
                     </select>
-                    <div class="info-text">For students and committee members</div>
                 </div>
                 
-                <!-- Year of Study - Only for Student and Committee -->
+                <!-- Year of Study -->
                 <div class="form-group student-field" id="yearField">
                     <label><i class="fas fa-calendar"></i> Year of Study</label>
                     <select name="year">
@@ -415,10 +357,9 @@ if ($user_data) {
                         <option value="3" <?php echo (($user_data['yearsOfStud'] ?? '') == 3) ? 'selected' : ''; ?>>Year 3</option>
                         <option value="4" <?php echo (($user_data['yearsOfStud'] ?? '') == 4) ? 'selected' : ''; ?>>Year 4</option>
                     </select>
-                    <div class="info-text">For students and committee members</div>
                 </div>
                 
-                <!-- Role (All roles) -->
+                <!-- Role -->
                 <div class="form-group">
                     <label class="required"><i class="fas fa-tag"></i> Role</label>
                     <select name="role_id" id="role_select" required>
@@ -430,7 +371,7 @@ if ($user_data) {
                     </select>
                 </div>
                 
-                <!-- Club Field - Only for Committee role -->
+                <!-- Club Field -->
                 <div class="form-group" id="club_field" style="display: none;">
                     <label><i class="fas fa-building"></i> Assign Club</label>
                     <select name="club_id">
@@ -441,10 +382,9 @@ if ($user_data) {
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <div class="info-text">Select which club this committee member belongs to</div>
                 </div>
                 
-                <!-- Position Field - Only for Committee role -->
+                <!-- Position Field -->
                 <div class="form-group" id="position_field" style="display: none;">
                     <label><i class="fas fa-user-tie"></i> Committee Position</label>
                     <select name="position_id">
@@ -455,10 +395,9 @@ if ($user_data) {
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <div class="info-text">Select position (President, Secretary, Treasurer, etc.)</div>
                 </div>
                 
-                <!-- Status (All roles) -->
+                <!-- Status -->
                 <div class="form-group full-width">
                     <label><i class="fas fa-power-off"></i> Account Status</label>
                     <div class="radio-group">
@@ -496,21 +435,18 @@ if ($user_data) {
         const positionField = document.getElementById('position_field');
         
         if (selectedRole === 'Administrator') {
-            // Hide student fields, show admin fields
             studentFields.forEach(field => { field.style.display = 'none'; });
             adminFields.forEach(field => { field.style.display = 'block'; });
             clubField.style.display = 'none';
             positionField.style.display = 'none';
         } 
         else if (selectedRole === 'Club Committee') {
-            // Show student fields, hide admin fields, show club and position
             studentFields.forEach(field => { field.style.display = 'block'; });
             adminFields.forEach(field => { field.style.display = 'none'; });
             clubField.style.display = 'block';
             positionField.style.display = 'block';
         }
         else {
-            // Student role - show student fields, hide admin, hide club and position
             studentFields.forEach(field => { field.style.display = 'block'; });
             adminFields.forEach(field => { field.style.display = 'none'; });
             clubField.style.display = 'none';
@@ -518,10 +454,7 @@ if ($user_data) {
         }
     }
     
-    // Run on page load
     toggleFields();
-    
-    // Run when role changes
     document.getElementById('role_select').addEventListener('change', toggleFields);
 </script>
 

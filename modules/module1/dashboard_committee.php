@@ -276,11 +276,6 @@ if ($club_id) {
             <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
         </a>
         
-        <!-- 4. Create Event -->
-        <a href="../module3/create_event.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'create_event.php') ? 'active' : ''; ?>">
-            <i class="fas fa-plus-circle"></i> <span>Create Event</span>
-        </a>
-        
         <!-- 5. Record Attendance (QR Scanner) -->
         <a href="../module4/attendance_management.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_management.php') ? 'active' : ''; ?>">
             <i class="fas fa-qrcode"></i> <span>Record Attendance</span>

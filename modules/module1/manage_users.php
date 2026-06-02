@@ -8,6 +8,41 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] != 1) {
     exit();
 }
 
+$message = '';
+if (isset($_GET['msg'])) {
+    if ($_GET['msg'] == 'updated') {
+        $message = '<div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle"></i> ✅ User updated successfully!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>';
+    }
+    if ($_GET['msg'] == 'added') {
+        $message = '<div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle"></i> ✅ User added successfully!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>';
+    }
+    if ($_GET['msg'] == 'deleted') {
+        $message = '<div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle"></i> ✅ User deleted successfully!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>';
+    }
+    if ($_GET['msg'] == 'activated') {
+        $message = '<div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle"></i> ✅ User activated successfully!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>';
+    }
+    if ($_GET['msg'] == 'deactivated') {
+        $message = '<div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle"></i> ✅ User deactivated successfully!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>';
+    }
+}
+
+
 // Handle user deactivation (soft delete) - with committee cleanup
 if (isset($_GET['deactivate'])) {
     $deactivate_id = (int)$_GET['deactivate'];
@@ -26,7 +61,7 @@ if (isset($_GET['deactivate'])) {
     $stmt = $pdo->prepare("UPDATE users SET status = 'Inactive' WHERE user_id = ?");
     $stmt->execute([$deactivate_id]);
     
-    header("Location: manage_users.php");
+    header("Location: manage_users.php?msg=deactivated");
     exit();
 }
 
@@ -35,7 +70,7 @@ if (isset($_GET['activate'])) {
     $activate_id = (int)$_GET['activate'];
     $stmt = $pdo->prepare("UPDATE users SET status = 'Active' WHERE user_id = ?");
     $stmt->execute([$activate_id]);
-    header("Location: manage_users.php");
+    header("Location: manage_users.php?msg=activated");
     exit();
 }
 
@@ -54,7 +89,7 @@ if (isset($_GET['delete_permanent'])) {
     $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
     $stmt->execute([$delete_id]);
     
-    header("Location: manage_users.php");
+    header("Location: manage_users.php?msg=deleted");
     exit();
 }
 
@@ -281,6 +316,9 @@ $users = $pdo->query("
         <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
+     <?php echo $message; ?>
+
+
     <div class="table-card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
             <h3><i class="fas fa-users"></i> Manage Users</h3>
@@ -436,6 +474,9 @@ $users = $pdo->query("
     roleFilter.addEventListener('change', filterTable);
     searchInput.addEventListener('keyup', filterTable);
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 
 </body>
 </html>
