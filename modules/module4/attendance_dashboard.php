@@ -404,6 +404,9 @@ foreach ($event_groups_slice as $label => $counts) {
             <a href="../module2/club_dashboard_admin.php">
                 <i class="fas fa-building"></i> <span>Manage Clubs</span>
             </a>
+            <a href="../module3/event_dashboard.php">
+               <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+            </a>
             <a href="../module3/manage_events.php">
                 <i class="fas fa-calendar-alt"></i> <span>Events</span>
             </a>
@@ -422,6 +425,9 @@ foreach ($event_groups_slice as $label => $counts) {
             </a>
             <a href="../module2/club_dashboard_committee.php">
                 <i class="fas fa-building"></i> <span>My Club</span>
+            </a>
+            <a href="../module3/event_dashboard.php">
+               <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
             </a>
             <a href="../module3/manage_events.php">
                 <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>

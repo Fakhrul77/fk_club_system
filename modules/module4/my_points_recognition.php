@@ -18,7 +18,7 @@ $student = $stmt->fetch();
 $eventTitleCol = 'event_title';
 $eventDateCol = 'event_date';
 
-// Attended events (Present only) joined with points
+// Get all attended events (including Late, Excused) for history display
 $sql = "SELECT a.*, e.`$eventTitleCol` AS eventTitle, e.`$eventDateCol` AS eventDate,"
      . " c.clubName, COALESCE(ap.pointsEarned, 0) AS pointsEarned"
      . " FROM attendance a"
@@ -26,7 +26,7 @@ $sql = "SELECT a.*, e.`$eventTitleCol` AS eventTitle, e.`$eventDateCol` AS event
      . " JOIN event e ON a.event_id = e.event_id"
      . " JOIN club c ON e.club_id = c.club_id"
      . " LEFT JOIN activity_points ap ON ap.user_id = er.user_id AND ap.event_id = a.event_id"
-     . " WHERE er.user_id = ? AND a.attendanceStatus = 'Present'"
+     . " WHERE er.user_id = ?"
      . " ORDER BY e.`$eventDateCol` ASC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$user_id]);

@@ -165,7 +165,7 @@ if ($user_data) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
-        .sidebar {
+            .sidebar {
             position: fixed;
             top: 0;
             left: 0;
@@ -176,10 +176,23 @@ if ($user_data) {
             z-index: 1000;
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
-        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .sidebar-header h4 { margin: 0; font-size: 18px; }
-        .sidebar-header p { font-size: 11px; opacity: 0.7; margin-top: 5px; }
-        .sidebar-menu { padding: 20px 0; }
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-header h4 {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+        }
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        .sidebar-menu {
+            padding: 20px 0;
+        }
         .sidebar-menu a {
             display: block;
             padding: 12px 25px;
@@ -189,9 +202,18 @@ if ($user_data) {
             transition: all 0.3s;
             font-size: 14px;
         }
-        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
-        .sidebar-menu a i { margin-right: 10px; width: 20px; }
-        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        .sidebar-menu a:hover {
+            background: rgba(253,184,19,0.2);
+            color: white;
+        }
+        .sidebar-menu a i {
+            margin-right: 10px;
+            width: 20px;
+        }
+        .sidebar-menu a.active {
+            background: var(--umpsa-gold);
+            color: var(--umpsa-dark-blue);
+        }
         
         .main-content { margin-left: 260px; padding: 20px; }
         
@@ -275,6 +297,9 @@ if ($user_data) {
         <a href="../module1/dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
         <a href="../module1/manage_users.php" class="active"><i class="fas fa-users"></i> <span>Manage Users</span></a>
         <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
+        <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
         <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
         <a href="../module4/attendance_dashboard.php"><i class="fas fa-chart-bar"></i> <span>Attendance</span></a>
         <a href="../module4/generate_report.php"><i class="fas fa-file-alt"></i> <span>Reports</span></a>

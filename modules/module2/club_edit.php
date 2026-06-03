@@ -148,6 +148,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <a href="../module2/club_redirect.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_admin.php' || basename($_SERVER['PHP_SELF']) == 'club_edit.php' || basename($_SERVER['PHP_SELF']) == 'club_create.php' || basename($_SERVER['PHP_SELF']) == 'committee_assign.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
+         <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
         <a href="../module3/manage_events.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php' || basename($_SERVER['PHP_SELF']) == 'create_event.php' || basename($_SERVER['PHP_SELF']) == 'edit_event.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>

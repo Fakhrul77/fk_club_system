@@ -46,12 +46,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } else {
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO event (club_id, event_title, event_description, event_date, event_time, venue, max_participant, current_participant, status, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'UPCOMING', ?, NOW())
-            ");
-            $stmt->execute([$selected_club_id, $event_title, $event_description, $event_date, $event_time, $venue, $max_participant, $_SESSION['user_name']]);
-            
-            $success = "Event created successfully!";
+    INSERT INTO event (club_id, event_title, event_description, event_date, event_time, venue, max_participant, current_participant, status, created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'UPCOMING', ?, NOW())
+");
+$stmt->execute([$selected_club_id, $event_title, $event_description, $event_date, $event_time, $venue, $max_participant, $_SESSION['user_name']]);
+
+// Get the newly created event ID
+$event_id = $pdo->lastInsertId();
+
+// ========== GENERATE QR CODE ==========
+// QR code data (what will be scanned)
+$qr_data = "event_id=" . $event_id . "&club_id=" . $selected_club_id;
+
+// Create qrcodes folder if not exists
+$qr_folder = '../../assets/qrcodes/';
+if (!file_exists($qr_folder)) {
+    mkdir($qr_folder, 0777, true);
+}
+
+// Generate QR code file
+// Note: You need to download phpqrcode library first
+// Place the phpqrcode folder inside 'includes' directory
+include_once '../../includes/phpqrcode/qrlib.php';
+
+$qr_file = $qr_folder . 'event_' . $event_id . '.png';
+QRcode::png($qr_data, $qr_file, QR_ECLEVEL_L, 10);
+// ========== END QR CODE GENERATION ==========
+
+$success = "Event created successfully!";
             
             // Redirect after success
             echo "<script>setTimeout(function(){ window.location.href='manage_events.php'; }, 1500);</script>";
@@ -190,6 +212,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <a href="../module2/club_redirect.php">
             <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
+         <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
         <a href="manage_events.php" class="active">
             <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>
@@ -209,6 +234,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </a>
         <a href="../module2/club_dashboard_committee.php">
             <i class="fas fa-building"></i> <span>My Club</span>
+        </a>
+         <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
         </a>
         <a href="manage_events.php" class="active">
             <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>

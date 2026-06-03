@@ -310,6 +310,9 @@ $trendData = array_values($trendData);
         <a href="../module2/club_redirect.php">
             <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
+        <a href="../module3/event_dashboard.php">
+               <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+            </a>
         <a href="../module3/manage_events.php">
             <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>

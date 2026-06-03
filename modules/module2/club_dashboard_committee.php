@@ -275,7 +275,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <a href="../module2/club_dashboard_committee.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_committee.php') ? 'active' : ''; ?>">
             <i class="fas fa-building"></i> <span>My Club</span>
         </a>
-        
+        <a href="../module3/event_dashboard.php">
+    <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+</a>
         <!-- 3. Manage Events -->
         <a href="../module3/manage_events.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php') ? 'active' : ''; ?>">
             <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>

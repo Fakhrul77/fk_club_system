@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$return_url = isset($_GET['return']) ? $_GET['return'] : 'manage_events.php';
+
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['user_role'];
 
@@ -271,6 +273,9 @@ $status_class = match($event['status']) {
             <a href="../module2/club_redirect.php">
                 <i class="fas fa-building"></i> <span>Manage Clubs</span>
             </a>
+            <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
             <a href="manage_events.php" class="active">
                 <i class="fas fa-calendar-alt"></i> <span>Events</span>
             </a>
@@ -291,6 +296,9 @@ $status_class = match($event['status']) {
             <a href="../module2/club_dashboard_committee.php">
                 <i class="fas fa-building"></i> <span>My Club</span>
             </a>
+          <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+           </a>
             <a href="manage_events.php" class="active">
                 <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
             </a>
@@ -334,16 +342,16 @@ $status_class = match($event['status']) {
     <div class="top-nav">
         <div class="welcome-text">
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
-            <span class="badge-role"><?php echo $user_role == 1 ? 'Admin' : ($user_role == 2 ? 'Committee' : 'Student'); ?></span>
+            <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : ($user_role == 2 ? 'Committee' : 'Student'); ?></span>
         </div>
         <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <!-- Back Button -->
     <div class="mb-3">
-        <a href="<?php echo ($user_role == 3) ? 'browse_events.php' : 'manage_events.php'; ?>" class="btn-back">
-            <i class="fas fa-arrow-left"></i> Back to <?php echo ($user_role == 3) ? 'Browse Events' : 'Manage Events'; ?>
-        </a>
+        <a href="<?php echo htmlspecialchars($return_url); ?>" class="btn-back">
+              <i class="fas fa-arrow-left"></i> Back
+         </a>
     </div>
 
     <!-- Event Header -->

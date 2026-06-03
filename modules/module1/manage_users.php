@@ -279,31 +279,51 @@ $users = $pdo->query("
     </div>
 </div>
 
-<div class="sidebar">
+<<div class="sidebar">
     <div class="sidebar-header">
         <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
         <h4>FK Club System</h4>
         <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
+        <!-- 1. Dashboard -->
         <a href="../module1/dashboard_admin.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'dashboard_admin.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-home"></i> <span>Dashboard</span>
         </a>
+        
+        <!-- 2. Manage Users -->
         <a href="../module1/manage_users.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_users.php' || basename($_SERVER['PHP_SELF']) == 'add_edit_user.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-users"></i> <span>Manage Users</span>
         </a>
+        
+        <!-- 3. Manage Clubs -->
         <a href="../module2/club_redirect.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_admin.php' || basename($_SERVER['PHP_SELF']) == 'club_edit.php' || basename($_SERVER['PHP_SELF']) == 'club_create.php' || basename($_SERVER['PHP_SELF']) == 'committee_assign.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
+        
+
+
+        <!-- 4. Event Dashboard (NEW) -->
+        <a href="../module3/event_dashboard.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'event_dashboard.php') ? 'class="active"' : ''; ?>>
+            <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
+
+        <!-- 5. Events (Manage) -->
         <a href="../module3/manage_events.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php' || basename($_SERVER['PHP_SELF']) == 'create_event.php' || basename($_SERVER['PHP_SELF']) == 'edit_event.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>
+        
+        <!-- 6. Attendance -->
         <a href="../module4/attendance_dashboard.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'attendance_dashboard.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-chart-bar"></i> <span>Attendance</span>
         </a>
+        
+        <!-- 7. Reports -->
         <a href="../module4/generate_report.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'generate_report.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-file-alt"></i> <span>Reports</span>
         </a>
+        
+        <!-- 8. Profile -->
         <a href="../module1/profile.php" <?php echo (basename($_SERVER['PHP_SELF']) == 'profile.php') ? 'class="active"' : ''; ?>>
             <i class="fas fa-user"></i> <span>Profile</span>
         </a>

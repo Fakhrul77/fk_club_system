@@ -203,6 +203,11 @@ $events = $stmt->fetchAll();
     border-radius: 8px;
     cursor: pointer;
 }
+
+.status-upcoming { background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
+.status-ongoing { background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
+.status-completed { background: #d1ecf1; color: #0c5460; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
+.status-cancelled { background: #f8d7da; color: #721c24; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -257,6 +262,9 @@ $events = $stmt->fetchAll();
         <a href="../module2/club_dashboard_admin.php">
             <i class="fas fa-building"></i> <span>Manage Clubs</span>
         </a>
+        <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
         <a href="../module3/manage_events.php" class="active">
             <i class="fas fa-calendar-alt"></i> <span>Events</span>
         </a>
@@ -284,6 +292,9 @@ $events = $stmt->fetchAll();
         </a>
         <a href="../module2/club_dashboard_committee.php">
             <i class="fas fa-building"></i> <span>My Club</span>
+        </a>
+        <a href="../module3/event_dashboard.php">
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
         </a>
         <a href="../module3/manage_events.php" class="active">
             <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
@@ -328,31 +339,48 @@ $events = $stmt->fetchAll();
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($events as $event): ?>
-                    <tr>
-                        <td><?php echo $event['event_id']; ?></td>
-                        <td><?php echo htmlspecialchars($event['event_title']); ?></td>
-                        <td><?php echo htmlspecialchars($event['clubName']); ?></td>
-                        <td><?php echo date('d M Y', strtotime($event['event_date'])); ?> <?php echo date('h:i A', strtotime($event['event_time'])); ?></td>
-                        <td><?php echo htmlspecialchars($event['venue']); ?></td>
-                        <td><?php echo $event['max_participant']; ?></td>
-                        <td><?php echo $event['current_participant']; ?></td>
-                        <td>
-                            <span class="status-<?php echo strtolower($event['status']); ?>">
-                                <?php echo $event['status']; ?>
-                            </span>
-                        </td>
-                        <td>
-                            <a href="edit_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="Edit"><i class="fas fa-edit"></i></a>
-                            <a href="view_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="View"><i class="fas fa-eye"></i></a>
-                            <button class="action-btn" onclick="changeStatus(<?php echo $event['event_id']; ?>)" title="Change Status"><i class="fas fa-sync-alt"></i></button>
-                            <button class="action-btn" type="button"
-        onclick="openDeleteModal(<?php echo $event['event_id']; ?>)">
-    <i class="fas fa-trash-alt" style="color:#dc3545;"></i>
-</button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+                    <?php foreach ($events as $event): 
+    // Calculate dynamic status based on date
+    $today = date('Y-m-d');
+    $event_date = $event['event_date'];
+    
+    if ($event['status'] == 'CANCELLED') {
+        $display_status = 'CANCELLED';
+        $status_class = 'cancelled';
+    } elseif ($event_date < $today) {
+        $display_status = 'COMPLETED';
+        $status_class = 'completed';
+    } elseif ($event_date == $today) {
+        $display_status = 'ONGOING';
+        $status_class = 'ongoing';
+    } else {
+        $display_status = $event['status']; // UPCOMING
+        $status_class = 'upcoming';
+    }
+?>
+<tr>
+    <td><?php echo $event['event_id']; ?></td>
+    <td><?php echo htmlspecialchars($event['event_title']); ?></td>
+    <td><?php echo htmlspecialchars($event['clubName']); ?></td>
+    <td><?php echo date('d M Y', strtotime($event['event_date'])); ?> <?php echo date('h:i A', strtotime($event['event_time'])); ?></td>
+    <td><?php echo htmlspecialchars($event['venue']); ?></td>
+    <td><?php echo $event['max_participant']; ?></td>
+    <td><?php echo $event['current_participant']; ?></td>
+    <td>
+        <span class="status-<?php echo $status_class; ?>">
+            <?php echo $display_status; ?>
+        </span>
+    </td>
+    <td>
+        <a href="edit_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="Edit"><i class="fas fa-edit"></i></a>
+        <a href="view_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="View"><i class="fas fa-eye"></i></a>
+        <button class="action-btn" onclick="changeStatus(<?php echo $event['event_id']; ?>)" title="Change Status"><i class="fas fa-sync-alt"></i></button>
+        <button class="action-btn" type="button" onclick="openDeleteModal(<?php echo $event['event_id']; ?>)">
+            <i class="fas fa-trash-alt" style="color:#dc3545;"></i>
+        </button>
+    </td>
+</tr>
+<?php endforeach; ?>
                 </tbody>
             </table>
         </div>
