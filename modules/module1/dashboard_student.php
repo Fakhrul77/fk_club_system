@@ -3,51 +3,104 @@ session_start();
 require_once '../../includes/db_connection.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] != 3) {
-    header("Location: login.php");
+    header("Location: ../module1/login.php");
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
 
+// Handle cancel registration
+if (isset($_GET['cancel_event'])) {
+    $event_id = (int)$_GET['cancel_event'];
+    
+    // Check if user has active registration
+    $stmt = $pdo->prepare("SELECT registration_id FROM event_registration WHERE user_id = ? AND event_id = ? AND status = 'Confirmed'");
+    $stmt->execute([$user_id, $event_id]);
+    $registration = $stmt->fetch();
+    
+    if ($registration) {
+        // Update registration status to Cancelled
+        $pdo->prepare("UPDATE event_registration SET status = 'Cancelled', cancellation_date = NOW() WHERE registration_id = ?")
+            ->execute([$registration['registration_id']]);
+        
+        // Update event participant count
+        $pdo->prepare("UPDATE event SET current_participant = current_participant - 1 WHERE event_id = ?")
+            ->execute([$event_id]);
+        
+        // Promote from waiting list if any
+        $waiting_stmt = $pdo->prepare("SELECT user_id, waiting_id FROM waiting_list WHERE event_id = ? ORDER BY position ASC LIMIT 1");
+        $waiting_stmt->execute([$event_id]);
+        $waiting_user = $waiting_stmt->fetch();
+        
+        if ($waiting_user) {
+            $pdo->prepare("DELETE FROM waiting_list WHERE waiting_id = ?")->execute([$waiting_user['waiting_id']]);
+            $pdo->prepare("INSERT INTO event_registration (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Confirmed')")
+                ->execute([$waiting_user['user_id'], $event_id]);
+            $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")->execute([$event_id]);
+        }
+    }
+    header("Location: dashboard_student.php?msg=cancelled");
+    exit();
+}
+
+// Check for messages
+$message = '';
+if (isset($_GET['msg'])) {
+    if ($_GET['msg'] == 'cancelled') {
+        $message = '<div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle"></i> Registration cancelled successfully!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>';
+    }
+}
+
+// Get user's total points
 $stmt = $pdo->prepare("SELECT SUM(pointsEarned) as total FROM activity_points WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $totalPoints = $stmt->fetchColumn() ?? 0;
 
+// Get clubs joined count
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM club_membership WHERE user_id = ? AND status = 'Active'");
 $stmt->execute([$user_id]);
 $clubsJoined = $stmt->fetchColumn() ?? 0;
 
+// Get upcoming registered events
 $upcomingEvents = $pdo->prepare("
-    SELECT e.*, c.clubName FROM event_registration er
+    SELECT e.*, c.clubName, er.registration_id, er.status as reg_status
+    FROM event_registration er
     JOIN event e ON er.event_id = e.event_id
     JOIN club c ON e.club_id = c.club_id
-    WHERE er.user_id = ? AND e.event_date >= CURDATE() ORDER BY e.event_date ASC LIMIT 5
+    WHERE er.user_id = ? AND e.event_date >= CURDATE() AND er.status = 'Confirmed'
+    ORDER BY e.event_date ASC LIMIT 5
 ");
 $upcomingEvents->execute([$user_id]);
 $upcomingEventsList = $upcomingEvents->fetchAll();
 
+// Get clubs joined
 $joinedClubs = $pdo->prepare("
-    SELECT c.*, cm.joinDate FROM club_membership cm
+    SELECT c.*, cm.joinDate 
+    FROM club_membership cm
     JOIN club c ON cm.club_id = c.club_id
     WHERE cm.user_id = ? AND cm.status = 'Active'
 ");
 $joinedClubs->execute([$user_id]);
 $joinedClubsList = $joinedClubs->fetchAll();
 
+// Get past events history
 $pastEvents = $pdo->prepare("
     SELECT e.*, c.clubName, a.attendanceStatus, ap.pointsEarned
     FROM event_registration er
     JOIN event e ON er.event_id = e.event_id
     JOIN club c ON e.club_id = c.club_id
-    LEFT JOIN attendance a ON a.user_id = er.user_id AND a.event_id = e.event_id
+    LEFT JOIN attendance a ON a.registration_id = er.registration_id
     LEFT JOIN activity_points ap ON ap.user_id = er.user_id AND ap.event_id = e.event_id
     WHERE er.user_id = ? AND e.event_date < CURDATE()
-    ORDER BY e.event_date DESC
-    LIMIT 5
+    ORDER BY e.event_date DESC LIMIT 5
 ");
 $pastEvents->execute([$user_id]);
 $pastEventsList = $pastEvents->fetchAll();
 
+// Determine recognition level
 if ($totalPoints >= 80) {
     $recognitionLevel = "Outstanding Participant";
     $recognitionBadge = "🏆";
@@ -70,6 +123,7 @@ if ($totalPoints >= 80) {
     $progressPercent = ($totalPoints / 80) * 100;
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,7 +137,7 @@ if ($totalPoints >= 80) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
-        .sidebar {
+         .sidebar {
     position: fixed;
     top: 0;
     left: 0;
@@ -206,7 +260,7 @@ if ($totalPoints >= 80) {
             margin: 3px;
         }
         
-        /* Logout Modal */
+        /* Modal Styles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -223,14 +277,16 @@ if ($totalPoints >= 80) {
             background: white;
             border-radius: 16px;
             padding: 25px;
-            width: 380px;
+            width: 400px;
             text-align: center;
         }
+        .modal-content i { font-size: 50px; margin-bottom: 15px; }
+        .modal-content h4 { margin-bottom: 15px; }
+        .modal-content p { margin-bottom: 20px; color: #666; }
         .modal-buttons {
             display: flex;
             gap: 15px;
             justify-content: center;
-            margin-top: 20px;
         }
         .modal-btn-confirm {
             background: #dc3545;
@@ -248,6 +304,29 @@ if ($totalPoints >= 80) {
             border-radius: 8px;
             cursor: pointer;
         }
+        
+        .btn-cancel {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .btn-cancel:hover { background: #c82333; }
+        .btn-qr {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-qr:hover { background: #138496; color: white; }
         
         @media (max-width: 768px) {
             .sidebar { width: 70px; }
@@ -293,8 +372,10 @@ if ($totalPoints >= 80) {
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Student'); ?>
             <span class="badge-role">Student</span>
         </div>
-        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
+
+    <?php echo $message; ?>
 
     <div class="stat-grid">
         <div class="stat-card">
@@ -348,7 +429,7 @@ if ($totalPoints >= 80) {
                 <?php endif; ?>
             </div>
             <div class="col-md-3 text-end">
-                <a href="#" style="color: white; text-decoration: none;">
+                <a href="../module4/my_points_recognition.php" style="color: white; text-decoration: none;">
                     View Details <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
@@ -359,7 +440,7 @@ if ($totalPoints >= 80) {
     <div class="table-card">
         <h5><i class="fas fa-building"></i> My Clubs</h5>
         <?php if (empty($joinedClubsList)): ?>
-            <p class="text-muted">You haven't joined any clubs yet. <a href="#">Browse Clubs</a></p>
+            <p class="text-muted">You haven't joined any clubs yet. <a href="../module2/club_dashboard_student.php">Browse Clubs</a></p>
         <?php else: ?>
             <div>
                 <?php foreach ($joinedClubsList as $club): ?>
@@ -377,39 +458,41 @@ if ($totalPoints >= 80) {
     <div class="table-card">
         <h5><i class="fas fa-calendar-alt"></i> My Upcoming Events</h5>
         <?php if (empty($upcomingEventsList)): ?>
-            <p class="text-muted">You haven't registered for any upcoming events. <a href="#">Browse Events</a></p>
+            <p class="text-muted">You haven't registered for any upcoming events. <a href="../module3/browse_events.php">Browse Events</a></p>
         <?php else: ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Event Name</th>
-                        <th>Club</th>
-                        <th>Date</th>
-                        <th>Venue</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($upcomingEventsList as $event): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($event['event_title']); ?></td>
-                        <td><?php echo htmlspecialchars($event['clubName']); ?></td>
-                        <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
-                        <td><?php echo htmlspecialchars($event['venue']); ?></td>
-                        <td><span class="status-registered">Registered</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" onclick="alert('View QR Code for: <?php echo $event['event_title']; ?>')">
-                                <i class="fas fa-qrcode"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="alert('Cancel registration for: <?php echo $event['event_title']; ?>')">
-                                <i class="fas fa-times-circle"></i> Cancel
-                            </button>
-                         </td
-                     </tr
-                    <?php endforeach; ?>
-                </tbody>
-              </table
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Event Name</th>
+                            <th>Club</th>
+                            <th>Date</th>
+                            <th>Venue</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($upcomingEventsList as $event): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($event['event_title']); ?></td>
+                            <td><?php echo htmlspecialchars($event['clubName']); ?></td>
+                            <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
+                            <td><?php echo htmlspecialchars($event['venue']); ?></td>
+                            <td><span class="status-registered">Registered</span></td>
+                            <td>
+                              <a href="../module4/generate_qr.php?event_id=<?php echo $event['event_id']; ?>&return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" target="_blank" class="btn-qr">
+    <i class="fas fa-qrcode"></i> QR
+</a>
+                                <button class="btn-cancel" onclick="openCancelModal(<?php echo $event['event_id']; ?>, '<?php echo htmlspecialchars($event['event_title']); ?>')">
+                                    <i class="fas fa-times-circle"></i> Cancel
+                                </button>
+                             </td
+                         </tr
+                        <?php endforeach; ?>
+                    </tbody>
+                 </table
+            </div>
         <?php endif; ?>
     </div>
 
@@ -419,84 +502,136 @@ if ($totalPoints >= 80) {
         <?php if (empty($pastEventsList)): ?>
             <p class="text-muted">No past events yet. Start participating!</p>
         <?php else: ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Event Name</th>
-                        <th>Club</th>
-                        <th>Date</th>
-                        <th>Attendance</th>
-                        <th>Points</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($pastEventsList as $event): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($event['event_title']); ?></td>
-                        <td><?php echo htmlspecialchars($event['clubName']); ?></td>
-                        <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
-                        <td>
-                            <?php if ($event['attendanceStatus'] == 'Present'): ?>
-                                <span class="status-attended">Present</span>
-                            <?php elseif ($event['attendanceStatus'] == 'Late'): ?>
-                                <span class="status-attended">Late</span>
-                            <?php else: ?>
-                                <span class="status-attended">Absent</span>
-                            <?php endif; ?>
-                        </td
-                        <td>
-                            <?php if ($event['pointsEarned'] > 0): ?>
-                                <strong style="color: #28a745;">+<?php echo $event['pointsEarned']; ?></strong>
-                            <?php elseif ($event['pointsEarned'] < 0): ?>
-                                <strong style="color: #dc3545;"><?php echo $event['pointsEarned']; ?></strong>
-                            <?php else: ?>
-                                -
-                            <?php endif; ?>
-                        </td
-                     </tr
-                    <?php endforeach; ?>
-                </tbody>
-              </table
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Event Name</th>
+                            <th>Club</th>
+                            <th>Date</th>
+                            <th>Attendance</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pastEventsList as $event): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($event['event_title']); ?></td>
+                            <td><?php echo htmlspecialchars($event['clubName']); ?></td>
+                            <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
+                            <td>
+                                <?php if ($event['attendanceStatus'] == 'Present'): ?>
+                                    <span class="status-attended">Present</span>
+                                <?php elseif ($event['attendanceStatus'] == 'Late'): ?>
+                                    <span class="status-attended">Late</span>
+                                <?php else: ?>
+                                    <span class="status-attended">Absent</span>
+                                <?php endif; ?>
+                            </td
+                            <td>
+                                <?php if ($event['pointsEarned'] > 0): ?>
+                                    <strong style="color: #28a745;">+<?php echo $event['pointsEarned']; ?></strong>
+                                <?php elseif ($event['pointsEarned'] < 0): ?>
+                                    <strong style="color: #dc3545;"><?php echo $event['pointsEarned']; ?></strong>
+                                <?php else: ?>
+                                    -
+                                <?php endif; ?>
+                            </td
+                         </tr
+                        <?php endforeach; ?>
+                    </tbody>
+                 </table
+            </div>
             <div class="view-all-link mt-3">
-                <a href="#">View Full History <i class="fas fa-arrow-right"></i></a>
+                <a href="../module4/my_points_recognition.php">View Full History <i class="fas fa-arrow-right"></i></a>
             </div>
         <?php endif; ?>
     </div>
 </div>
 
-<!-- Logout Confirmation Modal -->
-<div id="logoutModal" class="modal-overlay">
+<!-- Cancel Registration Confirmation Modal -->
+<div id="cancelModal" class="modal-overlay">
     <div class="modal-content">
-        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
-        <h4>Confirm Logout</h4>
-        <p>Are you sure you want to logout?</p>
+        <i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i>
+        <h4>Cancel Registration</h4>
+        <p id="cancelMessage">Are you sure you want to cancel your registration for <strong id="eventName"></strong>?</p>
+        <p class="text-muted small">This action cannot be undone. Your spot will be given to the next person on the waiting list.</p>
         <div class="modal-buttons">
-            <button id="confirmLogout" class="modal-btn-confirm">Yes, Logout</button>
-            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+            <button id="confirmCancelBtn" class="modal-btn-confirm">Yes, Cancel</button>
+            <button id="cancelCancelBtn" class="modal-btn-cancel">No, Keep It</button>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div id="qrModal" class="modal-overlay">
+    <div class="modal-content" style="width: 350px;">
+        <i class="fas fa-qrcode" style="font-size: 50px; color: var(--umpsa-blue);"></i>
+        <h4>Event QR Code</h4>
+        <p id="qrEventName"></p>
+        <div id="qrCodeImage" style="margin: 20px 0; text-align: center;">
+            <img id="qrImg" src="" alt="QR Code" style="width: 200px; height: 200px;">
+        </div>
+        <p class="text-muted small">Scan this QR code at the event venue for attendance verification.</p>
+        <div class="modal-buttons">
+            <button class="modal-btn-cancel" onclick="closeQRModal()">Close</button>
         </div>
     </div>
 </div>
 
 <script>
-    function showLogoutConfirm() {
-        document.getElementById('logoutModal').style.display = 'flex';
+    let cancelEventId = null;
+    
+    function openCancelModal(eventId, eventTitle) {
+        cancelEventId = eventId;
+        document.getElementById('eventName').innerHTML = eventTitle;
+        document.getElementById('cancelModal').style.display = 'flex';
     }
     
-    document.getElementById('confirmLogout').onclick = function() {
-        window.location.href = '../../logout.php';
+    function closeCancelModal() {
+        document.getElementById('cancelModal').style.display = 'none';
+        cancelEventId = null;
+    }
+    
+    document.getElementById('confirmCancelBtn').onclick = function() {
+        if (cancelEventId) {
+            window.location.href = '?cancel_event=' + cancelEventId;
+        }
     };
     
-    document.getElementById('cancelLogout').onclick = function() {
-        document.getElementById('logoutModal').style.display = 'none';
+    document.getElementById('cancelCancelBtn').onclick = function() {
+        closeCancelModal();
     };
     
     window.onclick = function(event) {
-        const modal = document.getElementById('logoutModal');
+        const modal = document.getElementById('cancelModal');
         if (event.target == modal) {
-            modal.style.display = 'none';
+            closeCancelModal();
+        }
+    };
+    
+    // Logout confirmation
+    document.querySelector('.logout-btn').onclick = function(e) {
+        e.preventDefault();
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = '../../logout.php';
         }
     };
 </script>
+
+<script>
+    function showQRModal(eventId, eventTitle) {
+        document.getElementById('qrEventName').innerHTML = '<strong>' + eventTitle + '</strong>';
+        document.getElementById('qrImg').src = '../../assets/qrcodes/event_' + eventId + '.png?' + new Date().getTime();
+        document.getElementById('qrModal').style.display = 'flex';
+    }
+    
+    function closeQRModal() {
+        document.getElementById('qrModal').style.display = 'none';
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 <?php 

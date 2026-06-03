@@ -38,12 +38,23 @@ $stmt->execute([$club_id]);
 $event_count = $stmt->fetchColumn();
 
 // Get committee members
-$committee = $pdo->prepare("SELECT u.name, u.email, cp.positionName FROM club_committee cc JOIN users u ON cc.user_id = u.user_id LEFT JOIN committee_position cp ON cc.position_id = cp.position_id WHERE cc.club_id = ? AND cc.status = 'Active' ORDER BY cp.position_id");
+$committee = $pdo->prepare("
+    SELECT u.name, u.email, cp.positionName 
+    FROM club_committee cc 
+    JOIN users u ON cc.user_id = u.user_id 
+    LEFT JOIN committee_position cp ON cc.position_id = cp.position_id 
+    WHERE cc.club_id = ? AND cc.status = 'Active' 
+    ORDER BY cp.position_id
+");
 $committee->execute([$club_id]);
 $committeeMembers = $committee->fetchAll();
 
 // Get upcoming events
-$upcomingEvents = $pdo->prepare("SELECT * FROM event WHERE club_id = ? AND event_date >= CURDATE() AND status = 'UPCOMING' ORDER BY event_date ASC LIMIT 5");
+$upcomingEvents = $pdo->prepare("
+    SELECT * FROM event 
+    WHERE club_id = ? AND event_date >= CURDATE() AND status = 'UPCOMING' 
+    ORDER BY event_date ASC LIMIT 5
+");
 $upcomingEvents->execute([$club_id]);
 $eventsList = $upcomingEvents->fetchAll();
 
@@ -53,29 +64,53 @@ $application_status = null;
 $can_apply = false;
 
 if ($user_role == 3) {
+    // Check existing application status
     $stmt = $pdo->prepare("SELECT status FROM club_membership_applications WHERE club_id = ? AND user_id = ?");
     $stmt->execute([$club_id, $user_id]);
     $app = $stmt->fetch();
     $application_status = $app['status'] ?? null;
+    
+    // Check if already a member
     $stmt = $pdo->prepare("SELECT * FROM club_membership WHERE club_id = ? AND user_id = ? AND status = 'Active'");
     $stmt->execute([$club_id, $user_id]);
-    $can_apply = !$stmt->fetch() && !$application_status && $club['status'] == 'Active';
+    $isMember = $stmt->fetch();
+    
+    $can_apply = !$isMember && !$application_status && $club['status'] == 'Active';
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['join_club']) && $can_apply) {
-    $stmt = $pdo->prepare("INSERT INTO club_membership_applications (club_id, user_id, status, application_date) VALUES (?, ?, 'Pending', CURDATE())");
-    $stmt->execute([$club_id, $user_id]);
-    header("Location: club_view.php?id=$club_id&msg=applied");
-    exit();
+// Handle club application with reason and motivation
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_application']) && $can_apply) {
+    $reason = trim($_POST['reason']);
+    $motivation = trim($_POST['motivation']);
+    
+    $errors = [];
+    if (empty($reason)) $errors[] = "Please provide a reason for joining.";
+    if (empty($motivation)) $errors[] = "Please provide your motivation.";
+    
+    if (empty($errors)) {
+        $stmt = $pdo->prepare("
+            INSERT INTO club_membership_applications (club_id, user_id, status, application_date, reason, motivation) 
+            VALUES (?, ?, 'Pending', CURDATE(), ?, ?)
+        ");
+        $stmt->execute([$club_id, $user_id, $reason, $motivation]);
+        header("Location: club_view.php?id=$club_id&msg=applied");
+        exit();
+    } else {
+        $error = implode("<br>", $errors);
+    }
 }
 
-$message = isset($_GET['msg']) && $_GET['msg'] == 'applied' ? '<div class="alert alert-success">✅ Application submitted successfully!</div>' : '';
+$message = '';
+if (isset($_GET['msg'])) {
+    if ($_GET['msg'] == 'applied') {
+        $message = '<div class="alert alert-success">✅ Application submitted successfully! Please wait for committee approval.</div>';
+    }
+}
 
+$return_page = '';
 if ($user_role == 1) $return_page = "club_dashboard_admin.php";
 elseif ($user_role == 2) $return_page = "club_dashboard_committee.php";
 else $return_page = "club_dashboard_student.php";
-
-$current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
 <!DOCTYPE html>
@@ -92,62 +127,33 @@ $current_page = basename($_SERVER['PHP_SELF']);
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
         .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 260px;
-    background: var(--umpsa-dark-blue);
-    color: white;
-    z-index: 1000;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-}
-
-.sidebar-header {
-    padding: 20px;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.sidebar-header h4 {
-    margin: 10px 0 0 0;
-    font-size: 18px;
-}
-
-.sidebar-header p {
-    margin: 5px 0 0 0;
-    font-size: 11px;
-    opacity: 0.7;
-}
-
-.sidebar-menu {
-    padding: 20px 0;
-}
-
-.sidebar-menu a {
-    display: block;
-    padding: 12px 25px;
-    margin: 5px 0;
-    color: rgba(255,255,255,0.8);
-    text-decoration: none;
-    transition: all 0.3s;
-    font-size: 14px;
-}
-
-.sidebar-menu a:hover {
-    background: rgba(253,184,19,0.2);
-    color: white;
-}
-
-.sidebar-menu a i {
-    margin-right: 10px;
-    width: 20px;
-}
-
-.sidebar-menu a.active {
-    background: var(--umpsa-gold);
-    color: var(--umpsa-dark-blue);
-}
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 260px;
+            background: var(--umpsa-dark-blue);
+            color: white;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h4 { margin: 0; font-size: 18px; }
+        .sidebar-header p { font-size: 11px; opacity: 0.7; margin-top: 5px; }
+        .sidebar-menu { padding: 20px 0; }
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 25px;
+            margin: 5px 0;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .sidebar-menu a:hover { background: rgba(253,184,19,0.2); color: white; }
+        .sidebar-menu a i { margin-right: 10px; width: 20px; }
+        .sidebar-menu a.active { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        
         .main-content { margin-left: 260px; padding: 20px; }
         .top-nav { background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .welcome-text { font-size: 16px; font-weight: 500; }
@@ -162,7 +168,64 @@ $current_page = basename($_SERVER['PHP_SELF']);
         .committee-tag { background: var(--umpsa-light-blue); padding: 8px 12px; border-radius: 10px; margin-bottom: 10px; }
         .event-date { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 3px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
         .btn-back { background: #6c757d; color: white; padding: 8px 15px; border-radius: 8px; text-decoration: none; display: inline-block; }
-        .btn-join { background: var(--umpsa-blue); color: white; padding: 10px 25px; border-radius: 8px; border: none; font-weight: bold; }
+        .btn-join { background: var(--umpsa-blue); color: white; padding: 10px 25px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-join:hover { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            width: 500px;
+            max-width: 90%;
+        }
+        .modal-header {
+            background: var(--umpsa-dark-blue);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 16px 16px 0 0;
+            margin: -25px -25px 20px -25px;
+        }
+        .modal-header h5 {
+            margin: 0;
+        }
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .modal-btn-confirm {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .modal-btn-cancel {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
         
         @media (max-width: 768px) {
             .sidebar { width: 70px; }
@@ -173,7 +236,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
 
-<!-- ========== DYNAMIC SIDEBAR ========== -->
+<!-- Sidebar -->
 <div class="sidebar">
     <div class="sidebar-header">
         <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
@@ -181,16 +244,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
-        <?php if ($user_role == 1): // ADMIN SIDEBAR ?>
+        <?php if ($user_role == 1): ?>
             <a href="../module1/dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
             <a href="../module1/manage_users.php"><i class="fas fa-users"></i> <span>Manage Users</span></a>
-            <a href="../module2/club_dashboard_admin.php" class="active"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
+            <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
             <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
             <a href="../module4/attendance_dashboard.php"><i class="fas fa-chart-bar"></i> <span>Attendance</span></a>
             <a href="../module4/generate_report.php"><i class="fas fa-file-alt"></i> <span>Reports</span></a>
             <a href="../module1/profile.php"><i class="fas fa-user"></i> <span>Profile</span></a>
-            
-        <?php elseif ($user_role == 2): // COMMITTEE SIDEBAR ?>
+        <?php elseif ($user_role == 2): ?>
             <a href="../module1/dashboard_committee.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
             <a href="../module2/club_dashboard_committee.php"><i class="fas fa-building"></i> <span>My Club</span></a>
             <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Manage Events</span></a>
@@ -199,8 +261,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <a href="../module4/attendance_dashboard.php"><i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span></a>
             <a href="../module4/generate_report.php"><i class="fas fa-file-alt"></i> <span>Reports</span></a>
             <a href="../module1/profile.php"><i class="fas fa-user"></i> <span>Profile</span></a>
-            
-        <?php else: // STUDENT SIDEBAR ?>
+        <?php else: ?>
             <a href="../module1/dashboard_student.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
             <a href="../module2/club_dashboard_student.php"><i class="fas fa-building"></i> <span>Browse Clubs</span></a>
             <a href="../module3/browse_events.php"><i class="fas fa-calendar-alt"></i> <span>Browse Events</span></a>
@@ -222,6 +283,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <div class="mb-3"><a href="<?php echo $return_page; ?>" class="btn-back"><i class="fas fa-arrow-left"></i> Back</a></div>
     <?php echo $message; ?>
+    <?php if (isset($error)) echo '<div class="alert alert-danger">' . $error . '</div>'; ?>
 
     <div class="club-header">
         <div>
@@ -232,39 +294,25 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 
     <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="stat-box">
-                <i class="fas fa-users fa-2x" style="color: var(--umpsa-gold);"></i>
-                <div class="stat-number"><?php echo $member_count; ?></div>
-                <div>Total Members</div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="stat-box">
-                <i class="fas fa-calendar-alt fa-2x" style="color: var(--umpsa-gold);"></i>
-                <div class="stat-number"><?php echo $event_count; ?></div>
-                <div>Total Events</div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="stat-box">
-                <i class="fas fa-calendar-plus fa-2x" style="color: var(--umpsa-gold);"></i>
-                <div class="stat-number"><?php echo date('d/m/Y', strtotime($club['created_at'])); ?></div>
-                <div>Founded</div>
-            </div>
-        </div>
+        <div class="col-md-4 mb-3"><div class="stat-box"><i class="fas fa-users fa-2x" style="color: var(--umpsa-gold);"></i><div class="stat-number"><?php echo $member_count; ?></div><div>Total Members</div></div></div>
+        <div class="col-md-4 mb-3"><div class="stat-box"><i class="fas fa-calendar-alt fa-2x" style="color: var(--umpsa-gold);"></i><div class="stat-number"><?php echo $event_count; ?></div><div>Total Events</div></div></div>
+        <div class="col-md-4 mb-3"><div class="stat-box"><i class="fas fa-calendar-plus fa-2x" style="color: var(--umpsa-gold);"></i><div class="stat-number"><?php echo date('d/m/Y', strtotime($club['created_at'])); ?></div><div>Founded</div></div></div>
     </div>
 
-    <?php if ($can_apply): ?>
-        <div class="text-center mb-4">
-            <form method="POST">
-                <button type="submit" name="join_club" class="btn-join"><i class="fas fa-hand-paper"></i> Apply to Join This Club</button>
-            </form>
-        </div>
-    <?php elseif ($application_status == 'Pending'): ?>
-        <div class="alert alert-warning text-center"><i class="fas fa-hourglass-half"></i> Your application is pending approval.</div>
-    <?php elseif ($application_status == 'Approved'): ?>
-        <div class="alert alert-success text-center"><i class="fas fa-check-circle"></i> You are a member of this club!</div>
+    <?php if ($user_role == 3): ?>
+        <?php if ($can_apply): ?>
+            <div class="text-center mb-4">
+                <button class="btn-join" onclick="openApplicationModal()">
+                    <i class="fas fa-hand-paper"></i> Apply to Join This Club
+                </button>
+            </div>
+        <?php elseif ($application_status == 'Pending'): ?>
+            <div class="alert alert-warning text-center"><i class="fas fa-hourglass-half"></i> Your application is pending approval.</div>
+        <?php elseif ($application_status == 'Approved'): ?>
+            <div class="alert alert-success text-center"><i class="fas fa-check-circle"></i> You are a member of this club!</div>
+        <?php elseif ($application_status == 'Rejected'): ?>
+            <div class="alert alert-danger text-center"><i class="fas fa-times-circle"></i> Your application was rejected.</div>
+        <?php endif; ?>
     <?php endif; ?>
 
     <div class="row">
@@ -319,6 +367,67 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 </div>
 
+<!-- Application Modal -->
+<div class="modal-overlay" id="applicationModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5><i class="fas fa-file-alt"></i> Apply to Join <?php echo htmlspecialchars($club['clubName']); ?></h5>
+            <button type="button" class="btn-close" onclick="closeApplicationModal()"></button>
+        </div>
+        <form method="POST" id="applicationForm">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Please explain why you want to join this club. 
+                Your application will be reviewed by the club committee.
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Why do you want to join this club? <span class="text-danger">*</span></label>
+                <textarea name="reason" class="form-control" rows="3" required 
+                          placeholder="Example: I am passionate about computing and want to improve my skills..."></textarea>
+                <small class="text-muted">Explain your interest in this club's activities.</small>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label fw-semibold">What motivates you to contribute to this club? <span class="text-danger">*</span></label>
+                <textarea name="motivation" class="form-control" rows="3" required 
+                          placeholder="Example: I want to organize events, help fellow students, and contribute to club growth..."></textarea>
+                <small class="text-muted">Describe how you plan to actively participate and add value to the club.</small>
+            </div>
+            
+            <div class="alert alert-warning small">
+                <i class="fas fa-exclamation-triangle"></i> Note: You can only be a member of ONE club at a time. 
+                Once approved, you will be added as an official member.
+            </div>
+            
+            <div class="modal-buttons">
+                <button type="button" class="modal-btn-cancel" onclick="closeApplicationModal()">Cancel</button>
+                <button type="submit" name="submit_application" class="modal-btn-confirm">
+                    <i class="fas fa-paper-plane"></i> Submit Application
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openApplicationModal() {
+        document.getElementById('applicationModal').style.display = 'flex';
+    }
+    
+    function closeApplicationModal() {
+        document.getElementById('applicationModal').style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('applicationModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+<?php $pdo = null; ?>

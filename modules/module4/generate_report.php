@@ -474,7 +474,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <th>Event</th>
                                     <th>Date</th>
                                     <th>Student Name</th>
-                                    <th>Matrix No.</th>
+                                    <th>Student ID</th>
                                     <th>Club</th>
                                     <th>Status</th>
                                     <?php if ($show_checkin): ?><th>Check-in Time</th><?php endif; ?>
@@ -501,7 +501,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <td><?php echo htmlspecialchars($row['eventTitle']); ?></td>
                                     <td><?php echo date('d M Y', strtotime($row['eventDate'])); ?></td>
                                     <td><?php echo htmlspecialchars($row['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['matrix_number']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['studentId']); ?></td>
                                     <td><?php echo htmlspecialchars($row['clubName']); ?></td>
                                     <td><span class="badge bg-<?php echo $sc; ?>"><?php echo $row['attendanceStatus']; ?></span></td>
                                     <?php if ($show_checkin): ?>

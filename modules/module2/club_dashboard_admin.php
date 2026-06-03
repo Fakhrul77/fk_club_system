@@ -122,6 +122,57 @@ $current_page = basename($_SERVER['PHP_SELF']);
     background: var(--umpsa-gold);
     color: var(--umpsa-dark-blue);
 }
+
+/* Modal Overlay */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    padding: 25px;
+    width: 400px;
+    text-align: center;
+}
+
+.modal-content i { font-size: 50px; margin-bottom: 15px; }
+.modal-content h4 { margin-bottom: 15px; }
+.modal-content p { margin-bottom: 20px; color: #666; }
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.modal-btn-confirm {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -272,8 +323,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         <a href="club_view.php?id=<?php echo $club['club_id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i> View</a>
                         <a href="club_edit.php?id=<?php echo $club['club_id']; ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i> Edit</a>
                         <a href="committee_assign.php?id=<?php echo $club['club_id']; ?>" class="btn btn-sm btn-primary"><i class="fas fa-user-tie"></i> Committee</a>
-                        <a href="club_toggle_status.php?id=<?php echo $club['club_id']; ?>" class="btn btn-sm btn-secondary" onclick="return confirm('Change status?')"><i class="fas fa-power-off"></i></a>
-                        <a href="club_delete.php?id=<?php echo $club['club_id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete this club?')"><i class="fas fa-trash"></i></a>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="openStatusModal(<?php echo $club['club_id']; ?>, '<?php echo htmlspecialchars($club['clubName']); ?>')">
+    <i class="fas fa-power-off"></i>
+</button>
+<button type="button" class="btn btn-sm btn-danger" onclick="openDeleteClubModal(<?php echo $club['club_id']; ?>, '<?php echo htmlspecialchars($club['clubName']); ?>')">
+    <i class="fas fa-trash"></i>
+</button>
                     </div>
                 </div>
             </div>
@@ -281,6 +336,32 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php if (empty($clubs)): ?>
             <div class="col-12"><div class="alert alert-info">No clubs found. <a href="club_create.php">Create your first club!</a></div></div>
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- Change Status Confirmation Modal -->
+<div id="statusModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sync-alt" style="font-size: 50px; color: #FDB813;"></i>
+        <h4>Change Club Status</h4>
+        <p id="statusMessage">Are you sure you want to change the status of this club?</p>
+        <div class="modal-buttons">
+            <button id="confirmStatusBtn" class="modal-btn-confirm">Yes, Change Status</button>
+            <button id="cancelStatusBtn" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Club Confirmation Modal -->
+<div id="deleteClubModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-trash-alt" style="font-size: 50px; color: #dc3545;"></i>
+        <h4>Delete Club</h4>
+        <p id="deleteClubMessage">⚠️ WARNING: This will permanently delete the club and all related data (members, events, etc.). This action cannot be undone!</p>
+        <div class="modal-buttons">
+            <button id="confirmDeleteClubBtn" class="modal-btn-confirm">Yes, Delete Club</button>
+            <button id="cancelDeleteClubBtn" class="modal-btn-cancel">Cancel</button>
+        </div>
     </div>
 </div>
 
@@ -302,5 +383,73 @@ new Chart(document.getElementById('statusChart'), {
     options: { responsive: true, scales: { y: { beginAtZero: true, stepSize: 1 } } }
 });
 </script>
+
+<script>
+// Status Modal Variables
+let statusClubId = null;
+let statusClubName = '';
+
+// Delete Club Modal Variables
+let deleteClubId = null;
+let deleteClubName = '';
+
+// Open Status Modal
+function openStatusModal(clubId, clubName) {
+    statusClubId = clubId;
+    statusClubName = clubName;
+    document.getElementById('statusMessage').innerHTML = `Are you sure you want to change the status of <strong>${clubName}</strong>?`;
+    document.getElementById('statusModal').style.display = 'flex';
+}
+
+// Confirm Status Change
+document.getElementById('confirmStatusBtn').addEventListener('click', function() {
+    if (statusClubId) {
+        window.location.href = `club_toggle_status.php?id=${statusClubId}`;
+    }
+});
+
+// Cancel Status Change
+document.getElementById('cancelStatusBtn').addEventListener('click', function() {
+    document.getElementById('statusModal').style.display = 'none';
+    statusClubId = null;
+});
+
+// Open Delete Club Modal
+function openDeleteClubModal(clubId, clubName) {
+    deleteClubId = clubId;
+    deleteClubName = clubName;
+    document.getElementById('deleteClubMessage').innerHTML = `⚠️ WARNING: You are about to permanently delete <strong>${clubName}</strong>.<br>This will delete all club members, events, and related data. This action cannot be undone!`;
+    document.getElementById('deleteClubModal').style.display = 'flex';
+}
+
+// Confirm Delete Club
+document.getElementById('confirmDeleteClubBtn').addEventListener('click', function() {
+    if (deleteClubId) {
+        window.location.href = `club_delete.php?id=${deleteClubId}`;
+    }
+});
+
+// Cancel Delete Club
+document.getElementById('cancelDeleteClubBtn').addEventListener('click', function() {
+    document.getElementById('deleteClubModal').style.display = 'none';
+    deleteClubId = null;
+});
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const statusModal = document.getElementById('statusModal');
+    const deleteClubModal = document.getElementById('deleteClubModal');
+    
+    if (event.target == statusModal) {
+        statusModal.style.display = 'none';
+        statusClubId = null;
+    }
+    if (event.target == deleteClubModal) {
+        deleteClubModal.style.display = 'none';
+        deleteClubId = null;
+    }
+}
+</script>
+
 </body>
 </html>

@@ -2,7 +2,7 @@
 session_start();
 require_once '../../includes/db_connection.php';
 require_once '../../includes/field_map.php';
-
+require_once '../../includes/helpers.php';
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../module1/login.php");
     exit();
@@ -75,7 +75,7 @@ if ($format === 'csv') {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="attendance_' . date('Ymd_His') . '.csv"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['#', 'Event', 'Date', 'Club', 'Student Name', 'Matrix No.', 'Status', 'Check-in Time']);
+    fputcsv($out, ['#', 'Event', 'Date', 'Club', 'Student Name', 'Student ID', 'Status', 'Check-in Time']);
     foreach ($records as $i => $r) {
         fputcsv($out, [
             $i + 1,
@@ -168,7 +168,7 @@ $rate    = $total > 0 ? round(($present / $total) * 100) : 0;
                         <td><?php echo htmlspecialchars($r['clubName'] ?? ''); ?></td>
                         <?php if ($user_role != 3): ?>
                             <td><?php echo htmlspecialchars($r['name'] ?? ''); ?></td>
-                            <td><?php echo htmlspecialchars($r['matrix_number'] ?? ''); ?></td>
+                            <td><?php echo htmlspecialchars($r['studentID'] ?? ''); ?></td>
                         <?php endif; ?>
                         <td><span class="badge bg-<?php echo $sc; ?>"><?php echo htmlspecialchars($r['attendanceStatus'] ?? ''); ?></span></td>
                         <td><?php echo $r['checkInTime'] ? date('H:i', strtotime($r['checkInTime'])) : '—'; ?></td>

@@ -244,6 +244,61 @@ foreach ($event_groups_slice as $label => $counts) {
     background: var(--umpsa-gold);
     color: var(--umpsa-dark-blue);
 }
+
+/* Modal Overlay */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    padding: 25px;
+    width: 400px;
+    text-align: center;
+}
+
+.modal-content i { font-size: 50px; margin-bottom: 15px; }
+.modal-content h4 { margin-bottom: 15px; }
+.modal-content p { margin-bottom: 20px; color: #666; }
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.modal-btn-confirm {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.modal-btn-confirm:hover { background: #c82333; }
+
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.modal-btn-cancel:hover { background: #5a6268; }
+
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -538,7 +593,7 @@ foreach ($event_groups_slice as $label => $counts) {
                                 <th>Date</th>
                                 <th>Club</th>
                                 <?php if ($user_role != 3): ?><th>Student Name</th><?php endif; ?>
-                                <th>Matrix No.</th>
+                                <th>Student ID</th>
                                 <th>Status</th>
                                 <th>Check-in Time</th>
                                 <?php if ($user_role != 3): ?><th>Action</th><?php endif; ?>
@@ -558,18 +613,20 @@ foreach ($event_groups_slice as $label => $counts) {
                                 <?php if ($user_role != 3): ?>
                                     <td><?php echo htmlspecialchars($record['name']); ?></td>
                                 <?php endif; ?>
-                                <td><?php echo htmlspecialchars($record['matrix_number']); ?></td>
+                                <td><?php echo htmlspecialchars($record['studentId']); ?></td>
                                 <td><span class="badge bg-<?php echo $sc; ?>"><?php echo $record['attendanceStatus']; ?></span></td>
                                 <td><?php echo $record['checkInTime'] ? date('H:i', strtotime($record['checkInTime'])) : '—'; ?></td>
                                 <?php if ($user_role != 3): ?>
                                 <td>
-                                    <form method="POST" onsubmit="return confirm('Delete this attendance record? This cannot be undone.');">
-                                        <input type="hidden" name="action" value="delete_attendance">
-                                        <input type="hidden" name="attendance_id" value="<?php echo $record['attendance_id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete record">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="openDeleteAttendanceModal(<?php echo $record['attendance_id']; ?>, '<?php echo htmlspecialchars($record['eventTitle']); ?>', '<?php echo htmlspecialchars($record['name']); ?>')" title="Delete record">
+    <i class="fas fa-trash-alt"></i>
+</button>
+
+<!-- Hidden form for deletion -->
+<form id="deleteAttendanceForm" method="POST">
+    <input type="hidden" name="action" value="delete_attendance">
+    <input type="hidden" name="attendance_id" id="delete_attendance_id">
+</form>
                                 </td>
                                 <?php endif; ?>
                             </tr>
@@ -591,6 +648,20 @@ foreach ($event_groups_slice as $label => $counts) {
         <div class="modal-buttons">
             <button id="confirmLogout" class="modal-btn-confirm">Yes, Logout</button>
             <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Attendance Confirmation Modal -->
+<div id="deleteAttendanceModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #dc3545;"></i>
+        <h4>Delete Attendance Record</h4>
+        <p id="deleteAttendanceMessage">Are you sure you want to delete this attendance record?</p>
+        <p class="text-muted small">This will also remove any points awarded for this attendance.</p>
+        <div class="modal-buttons">
+            <button id="confirmDeleteAttendanceBtn" class="modal-btn-confirm">Yes, Delete Record</button>
+            <button id="cancelDeleteAttendanceBtn" class="modal-btn-cancel">Cancel</button>
         </div>
     </div>
 </div>
@@ -667,6 +738,45 @@ foreach ($event_groups_slice as $label => $counts) {
         }
     });
     <?php endif; ?>
+</script>
+
+<script>
+// Delete Attendance Modal Variables
+let deleteAttendanceId = null;
+let deleteEventName = '';
+let deleteStudentName = '';
+
+// Open Delete Attendance Modal
+function openDeleteAttendanceModal(attendanceId, eventName, studentName) {
+    deleteAttendanceId = attendanceId;
+    deleteEventName = eventName;
+    deleteStudentName = studentName;
+    document.getElementById('deleteAttendanceMessage').innerHTML = `Are you sure you want to delete the attendance record for <strong>${studentName}</strong> at event <strong>${eventName}</strong>?`;
+    document.getElementById('deleteAttendanceModal').style.display = 'flex';
+}
+
+// Confirm Delete Attendance
+document.getElementById('confirmDeleteAttendanceBtn').addEventListener('click', function() {
+    if (deleteAttendanceId) {
+        document.getElementById('delete_attendance_id').value = deleteAttendanceId;
+        document.getElementById('deleteAttendanceForm').submit();
+    }
+});
+
+// Cancel Delete Attendance
+document.getElementById('cancelDeleteAttendanceBtn').addEventListener('click', function() {
+    document.getElementById('deleteAttendanceModal').style.display = 'none';
+    deleteAttendanceId = null;
+});
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('deleteAttendanceModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+        deleteAttendanceId = null;
+    }
+}
 </script>
 
 </body>

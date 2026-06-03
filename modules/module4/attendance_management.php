@@ -475,8 +475,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                            class="event-btn <?php echo ($event_id == $ev['event_id']) ? 'active-event' : ''; ?>">
                             <div class="fw-bold"><?php echo htmlspecialchars($ev['eventTitle']); ?></div>
                             <small class="text-muted"><i class="far fa-calendar"></i>
-                                <?php echo date('M d, Y  H:i', strtotime($ev['eventDate'])); ?>
-                            </small>
+    <?php echo date('M d, Y', strtotime($ev['eventDate'])); ?> at 
+    <?php echo date('h:i A', strtotime($ev['event_time'] ?? $ev['eventDate'])); ?>
+</small>
                         </a>
                     </div>
                     <?php endforeach; ?>
@@ -498,7 +499,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 <div class="sec-body">
                     <p><strong>Event:</strong> <?php echo htmlspecialchars($current_event['eventTitle']); ?></p>
                     <p><strong>Date:</strong> <?php echo date('M d, Y', strtotime($current_event['eventDate'])); ?></p>
-                    <p><strong>Time:</strong> <?php echo date('H:i', strtotime($current_event['eventDate'])); ?></p>
+                    <p><strong>Time:</strong> <?php echo date('h:i A', strtotime($current_event['event_time'] ?? $current_event['eventDate'])); ?></p>
                     <p class="mb-0"><strong>Venue:</strong> <?php echo htmlspecialchars($current_event['eventVenue']); ?></p>
                 </div>
             </div>
@@ -511,16 +512,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         <input type="hidden" name="action" value="manual_mark">
                         <input type="hidden" name="event_id" value="<?php echo $event_id; ?>">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Student</label>
-                            <select name="registration_id" class="form-select" required>
-                                <option value="">-- Choose student --</option>
-                                <?php foreach ($registered_students as $st): ?>
-                                    <option value="<?php echo $st['registration_id']; ?>">
-                                        <?php echo htmlspecialchars($st['name']); ?> (<?php echo $st['matrix_number']; ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+    <label class="form-label fw-semibold">Student</label>
+    <select name="registration_id" class="form-select" required>
+        <option value="">-- Choose student --</option>
+        <?php foreach ($registered_students as $st): ?>
+            <option value="<?php echo $st['registration_id']; ?>">
+                <?php echo htmlspecialchars($st['name']); ?> 
+                (<?php echo htmlspecialchars($st['studentId']); ?>)
+            </option>
+        <?php endforeach; ?>
+    </select>
+</div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Status</label>
                             <select name="attendance_status" class="form-select" required
@@ -574,7 +576,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         <tr>
                             <th>#</th>
                             <th>Student Name</th>
-                            <th>Matrix No</th>
+                            <th>Student ID</th>
                             <th>Attendance Status</th>
                             <th>Check-in Time</th>
                         </tr>
@@ -594,7 +596,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         <tr>
                             <td><?php echo $i+1; ?></td>
                             <td><?php echo htmlspecialchars($st['name']); ?></td>
-                            <td><?php echo htmlspecialchars($st['matrix_number']); ?></td>
+                            <td><?php echo htmlspecialchars($st['studentId']); ?></td>
                             <td><span class="badge bg-<?php echo $sc; ?>"><?php echo $status; ?></span></td>
                             <td><?php echo $checkin ? date('H:i:s', strtotime($checkin)) : '—'; ?></td>
                         </tr>

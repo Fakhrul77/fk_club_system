@@ -61,14 +61,10 @@ $rejectedApplication = $stmt->fetch();
 
 // Handle dismiss rejected message
 if (isset($_GET['clear_rejected'])) {
-    // Option 1: Delete the rejected record
     $stmt = $pdo->prepare("DELETE FROM club_membership_applications WHERE user_id = ? AND status = 'Rejected'");
     $stmt->execute([$user_id]);
     header("Location: club_dashboard_student.php");
     exit();
-    
-    // OR Option 2: Just mark it as seen by adding a 'seen' column to database
-    // $stmt = $pdo->prepare("UPDATE club_membership_applications SET seen = 1 WHERE user_id = ? AND status = 'Rejected'");
 }
 
 // Get upcoming events for student's club (if member)
@@ -187,8 +183,6 @@ if (isset($_GET['msg'])) {
     if ($_GET['msg'] == 'cancelled') $message = '<div class="alert alert-info">📝 Application cancelled. You can now apply to other clubs.</div>';
     if ($_GET['msg'] == 'left') $message = '<div class="alert alert-info">👋 You have left the club. You can now join another club.</div>';
 }
-
-$current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
 <!DOCTYPE html>
@@ -200,75 +194,77 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { --umpsa-blue: #003B5C; --umpsa-gold: #FDB813; --umpsa-dark-blue: #002147; --umpsa-light-blue: #E8F0F8; }
+        :root { 
+            --umpsa-blue: #003B5C; 
+            --umpsa-gold: #FDB813; 
+            --umpsa-dark-blue: #002147; 
+            --umpsa-light-blue: #E8F0F8;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, var(--umpsa-light-blue) 0%, #e0e8f0 100%);
+            overflow-x: hidden; 
+        }
         
-        /* ========== SIDEBAR - FIXED SPACING ========== */
+        /* Sidebar */
         .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 260px;
-    background: var(--umpsa-dark-blue);
-    color: white;
-    z-index: 1000;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-}
-
-.sidebar-header {
-    padding: 20px;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.sidebar-header h4 {
-    margin: 10px 0 0 0;
-    font-size: 18px;
-}
-
-.sidebar-header p {
-    margin: 5px 0 0 0;
-    font-size: 11px;
-    opacity: 0.7;
-}
-
-.sidebar-menu {
-    padding: 20px 0;
-}
-
-.sidebar-menu a {
-    display: block;
-    padding: 12px 25px;
-    margin: 5px 0;
-    color: rgba(255,255,255,0.8);
-    text-decoration: none;
-    transition: all 0.3s;
-    font-size: 14px;
-}
-
-.sidebar-menu a:hover {
-    background: rgba(253,184,19,0.2);
-    color: white;
-}
-
-.sidebar-menu a i {
-    margin-right: 10px;
-    width: 20px;
-}
-
-.sidebar-menu a.active {
-    background: var(--umpsa-gold);
-    color: var(--umpsa-dark-blue);
-}
-        /* ========== MAIN CONTENT ========== */
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 260px;
+            background: var(--umpsa-dark-blue);
+            color: white;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-header h4 {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+        }
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 25px;
+            margin: 5px 0;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .sidebar-menu a:hover {
+            background: rgba(253,184,19,0.2);
+            color: white;
+        }
+        .sidebar-menu a i {
+            margin-right: 10px;
+            width: 20px;
+        }
+        .sidebar-menu a.active {
+            background: var(--umpsa-gold);
+            color: var(--umpsa-dark-blue);
+        }
+        
+        /* Main Content */
         .main-content {
             margin-left: 260px;
             padding: 20px;
         }
         
-        /* ========== TOP NAVBAR ========== */
+        /* Top Navbar */
         .top-nav {
             background: white;
             padding: 15px 25px;
@@ -302,96 +298,229 @@ $current_page = basename($_SERVER['PHP_SELF']);
             background: #c82333;
         }
         
-        /* ========== CLUB CARDS ========== */
-        .club-card {
+        /* Page Title */
+        .page-title {
+            color: var(--umpsa-blue);
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        .page-title i {
+            color: var(--umpsa-gold);
+            margin-right: 10px;
+        }
+        
+        /* My Club Header */
+        .my-club-header {
+            background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
+            color: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+        .my-club-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+        }
+        .my-club-header h3 {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        .my-club-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .btn-leave {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 20px;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        .btn-leave:hover {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        /* Info Cards */
+        .info-card {
             background: white;
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             transition: transform 0.2s;
-            height: 100%;
         }
-        .club-card:hover {
+        .info-card:hover {
             transform: translateY(-3px);
         }
-        .club-name {
-            font-size: 18px;
-            font-weight: bold;
+        .info-card h5 {
             color: var(--umpsa-blue);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--umpsa-gold);
+            display: inline-block;
+        }
+        .info-card h5 i {
+            color: var(--umpsa-gold);
+            margin-right: 8px;
+        }
+        
+        /* Committee Tags */
+        .committee-tag {
+            background: var(--umpsa-light-blue);
+            padding: 8px 15px;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 5px;
+            min-width: 120px;
+        }
+        .committee-tag strong {
+            color: var(--umpsa-blue);
+            display: block;
+            font-size: 13px;
+        }
+        .committee-tag span {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* Club Cards */
+        .club-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+            height: 100%;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .club-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .club-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--umpsa-blue);
+            margin-bottom: 8px;
+        }
+        .club-meta {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        .club-meta i {
+            margin-right: 5px;
+        }
+        .club-description {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 15px;
         }
         .btn-apply {
-            background: var(--umpsa-blue);
+            background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
             color: white;
             border: none;
-            padding: 5px 15px;
-            border-radius: 20px;
+            padding: 8px 18px;
+            border-radius: 25px;
             font-size: 12px;
+            transition: all 0.3s;
         }
         .btn-apply:hover {
             background: var(--umpsa-gold);
             color: var(--umpsa-dark-blue);
+            transform: scale(1.02);
         }
-        .member-badge {
-            background: var(--umpsa-gold);
-            color: var(--umpsa-dark-blue);
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 11px;
+        .btn-details {
+            background: #f8f9fa;
+            color: var(--umpsa-blue);
+            border: 1px solid #ddd;
+            padding: 8px 18px;
+            border-radius: 25px;
+            font-size: 12px;
+            transition: all 0.3s;
+            text-decoration: none;
             display: inline-block;
         }
+        .btn-details:hover {
+            background: #e9ecef;
+        }
+        
+        /* Info Boxes */
         .info-box {
             background: #d1ecf1;
             border-left: 4px solid #17a2b8;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
         }
-        .btn-leave {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 8px;
+        .info-box-warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
         }
-        .btn-leave:hover {
-            background: #c82333;
-        }
-        .committee-tag {
-            background: var(--umpsa-light-blue);
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: inline-block;
-            margin: 3px;
-            font-size: 12px;
-        }
-        .my-club-header {
-            background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
-            color: white;
-            border-radius: 16px;
-            padding: 25px;
-            margin-bottom: 20px;
+        .info-box-danger {
+            background: #f8d7da;
+            border-left-color: #dc3545;
         }
         
-        /* ========== MODAL ========== */
+        /* Tables */
+        .events-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .events-table th {
+            text-align: left;
+            padding: 12px;
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #eee;
+        }
+        .events-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .events-table tr:hover {
+            background: var(--umpsa-light-blue);
+        }
+        
+        /* Badges */
+        .badge-member {
+            background: #28a745;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        /* Modal */
         .application-modal .modal-content {
-            border-radius: 15px;
+            border-radius: 16px;
+            overflow: hidden;
         }
         .application-modal .modal-header {
-            background: var(--umpsa-dark-blue);
+            background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
             color: white;
-            border-radius: 15px 15px 0 0;
+            border: none;
         }
         
-        /* ========== RESPONSIVE ========== */
+        /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
                 width: 70px;
@@ -407,7 +536,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
 
-<!-- ========== SIDEBAR ========== -->
+<!-- Sidebar -->
 <div class="sidebar">
     <div class="sidebar-header">
         <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
@@ -436,7 +565,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 </div>
 
-<!-- ========== MAIN CONTENT ========== -->
+<!-- Main Content -->
 <div class="main-content">
     <div class="top-nav">
         <div class="welcome-text">
@@ -446,74 +575,89 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
-    <h2 class="mb-4" style="color: var(--umpsa-blue);"><i class="fas fa-tachometer-alt"></i> Club Management</h2>
+    <h2 class="page-title"><i class="fas fa-building"></i> Club Management</h2>
+    
     <?php echo $message; if (isset($error)) echo '<div class="alert alert-danger">' . $error . '</div>'; ?>
 
     <!-- ========== IF STUDENT IS A MEMBER OF A CLUB ========== -->
     <?php if ($clubsJoined > 0 && $currentClub): ?>
         <div class="my-club-header">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <div>
                     <h3><i class="fas fa-check-circle"></i> My Club</h3>
-                    <h1 class="display-5"><?php echo htmlspecialchars($currentClub['clubName']); ?></h1>
+                    <h1><?php echo htmlspecialchars($currentClub['clubName']); ?></h1>
                     <p class="mb-2"><?php echo htmlspecialchars($currentClub['clubCategory'] ?? 'General'); ?> Club</p>
-                    <p><small>Member since: <?php echo date('d F Y', strtotime($currentClub['joinDate'])); ?></small></p>
+                    <p class="mb-0"><i class="fas fa-calendar-alt"></i> Member since: <?php echo date('d F Y', strtotime($currentClub['joinDate'])); ?></p>
                 </div>
-                <div>
-                    <button type="button" class="btn btn-outline-light" onclick="openLeaveClubModal()">
-                  <i class="fas fa-sign-out-alt"></i> Leave Club
-                   </button>
+                <div class="mt-3 mt-md-0">
+                    <button type="button" class="btn-leave" onclick="openLeaveClubModal('<?php echo htmlspecialchars($currentClub['clubName']); ?>')">
+                     <i class="fas fa-sign-out-alt"></i> Leave Club
+                    </button>
+
                 </div>
             </div>
         </div>
 
-        <!-- Club Information -->
+        <!-- Club Information Row -->
         <div class="row">
             <div class="col-md-8">
-                <div class="club-card">
-                    <h5><i class="fas fa-info-circle"></i> About <?php echo htmlspecialchars($currentClub['clubName']); ?></h5>
+                <div class="info-card">
+                    <h5><i class="fas fa-info-circle"></i> About the Club</h5>
                     <p><?php echo nl2br(htmlspecialchars($currentClub['clubDescription'] ?? 'No description available.')); ?></p>
-                    
                     <?php if ($currentClub['advisorName']): ?>
                         <hr>
-                        <p><strong><i class="fas fa-chalkboard-user"></i> Advisor:</strong> <?php echo htmlspecialchars($currentClub['advisorName']); ?></p>
+                        <p class="mb-0"><i class="fas fa-chalkboard-user"></i> <strong>Advisor:</strong> <?php echo htmlspecialchars($currentClub['advisorName']); ?></p>
                     <?php endif; ?>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="club-card">
-                    <h5><i class="fas fa-user-tie"></i> Committee Members</h5>
-                    <?php if (empty($committeeMembers)): ?>
-                        <p class="text-muted">No committee members listed.</p>
-                    <?php else: ?>
-                        <?php foreach ($committeeMembers as $cm): ?>
-                            <div class="committee-tag">
-                                <strong><?php echo htmlspecialchars($cm['positionName'] ?? 'Member'); ?></strong><br>
-                                <?php echo htmlspecialchars($cm['name']); ?>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
+    <div class="info-card">
+        <h5><i class="fas fa-user-tie"></i> Committee Members</h5>
+        <?php if (empty($committeeMembers)): ?>
+            <p class="text-muted text-center py-3 mb-0">No committee members listed yet.</p>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <?php foreach ($committeeMembers as $cm): ?>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px 5px; width: 40px;">
+                                <i class="fas fa-user-circle" style="font-size: 28px; color: var(--umpsa-blue);"></i>
+                            </td>
+                            <td style="padding: 10px 5px;">
+                                <div style="font-weight: 600;"><?php echo htmlspecialchars($cm['name']); ?></div>
+                                <div style="font-size: 11px; color: #888;"><?php echo htmlspecialchars($cm['positionName'] ?? 'Committee Member'); ?></div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
             </div>
+        <?php endif; ?>
+    </div>
+</div>
         </div>
 
         <!-- Upcoming Events -->
         <?php if (!empty($upcomingEvents)): ?>
-            <div class="club-card">
+            <div class="info-card">
                 <h5><i class="fas fa-calendar-alt"></i> Upcoming Events</h5>
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="events-table">
                         <thead>
-                            <tr><th>Event Name</th><th>Date</th><th>Time</th><th>Venue</th></tr>
+                            <tr>
+                                <th>Event Name</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Venue</th>
+                            </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($upcomingEvents as $event): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($event['event_title']); ?></strong></td>
-                                    <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
-                                    <td><?php echo date('h:i A', strtotime($event['event_time'])); ?></td>
-                                    <td><?php echo htmlspecialchars($event['venue'] ?? 'TBA'); ?></td>
-                                </tr>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($event['event_title']); ?></strong></td>
+                                <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
+                                <td><?php echo date('h:i A', strtotime($event['event_time'])); ?></td>
+                                <td><?php echo htmlspecialchars($event['venue'] ?? 'TBA'); ?></td>
+                            </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -526,62 +670,65 @@ $current_page = basename($_SERVER['PHP_SELF']);
             To join another club, you must leave your current club first.
         </div>
 
-           <!-- ========== IF STUDENT HAS PENDING APPLICATION ========== -->
+    <!-- ========== IF STUDENT HAS PENDING APPLICATION ========== -->
     <?php elseif ($pendingApplication): ?>
-        <div class="info-box">
-            <div class="d-flex justify-content-between align-items-center">
+        <div class="info-box info-box-warning">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <div>
-                    <h5><i class="fas fa-hourglass-half text-warning"></i> Pending Application</h5>
-                    <p>You have applied to join <strong><?php echo htmlspecialchars($pendingApplication['clubName']); ?></strong></p>
-                    <p><strong>Club Category:</strong> <?php echo htmlspecialchars($pendingApplication['clubCategory'] ?? 'General'); ?></p>
-                    <p><strong>Application date:</strong> <?php echo date('d M Y', strtotime($pendingApplication['application_date'])); ?></p>
+                    <h5><i class="fas fa-hourglass-half"></i> Pending Application</h5>
+                    <p class="mb-1">You have applied to join <strong><?php echo htmlspecialchars($pendingApplication['clubName']); ?></strong></p>
+                    <p class="mb-1"><small><i class="fas fa-tag"></i> <?php echo htmlspecialchars($pendingApplication['clubCategory'] ?? 'General'); ?></small></p>
+                    <p class="mb-2"><small><i class="fas fa-calendar"></i> Applied: <?php echo date('d M Y', strtotime($pendingApplication['application_date'])); ?></small></p>
                     <?php if ($pendingApplication['reason']): ?>
-                        <p><strong>Your reason for joining:</strong><br><?php echo nl2br(htmlspecialchars($pendingApplication['reason'])); ?></p>
+                        <div class="mt-2 p-2 bg-white rounded" style="font-size: 13px;">
+                            <strong>Your reason:</strong><br><?php echo nl2br(htmlspecialchars($pendingApplication['reason'])); ?>
+                        </div>
                     <?php endif; ?>
-                    <p class="small text-muted mt-2">Please wait for committee approval. You cannot apply to other clubs while pending.</p>
+                    <p class="small text-muted mt-3 mb-0"><i class="fas fa-clock"></i> Please wait for committee approval. You cannot apply to other clubs while pending.</p>
                 </div>
-                <button type="button" class="btn btn-danger" onclick="openCancelApplicationModal()">
-                    <i class="fas fa-times"></i> Cancel Application
-                </button>
+                <div class="mt-3 mt-md-0">
+                    <button type="button" class="btn btn-danger" onclick="openCancelApplicationModal()">
+                        <i class="fas fa-times"></i> Cancel Application
+                    </button>
+                </div>
             </div>
         </div>
 
     <!-- ========== IF STUDENT HAS REJECTED APPLICATION ========== -->
     <?php elseif ($rejectedApplication): ?>
-        <div class="info-box" style="background: #f8d7da; border-left-color: #dc3545;">
-            <div class="d-flex justify-content-between align-items-start">
-                <div style="flex: 1;">
-                    <h5 style="color: #721c24;"><i class="fas fa-times-circle" style="color: #dc3545;"></i> Application Rejected</h5>
-                    <p>Your application to join <strong><?php echo htmlspecialchars($rejectedApplication['clubName']); ?></strong> was not approved.</p>
+        <div class="info-box info-box-danger">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div class="flex-grow-1">
+                    <h5><i class="fas fa-times-circle"></i> Application Rejected</h5>
+                    <p class="mb-1">Your application to join <strong><?php echo htmlspecialchars($rejectedApplication['clubName']); ?></strong> was not approved.</p>
                     
-                    <!-- Show rejection reason -->
-                    <div style="background: white; padding: 12px 15px; border-radius: 10px; margin-top: 10px; border-left: 3px solid #dc3545;">
+                    <div class="mt-3 p-3 bg-white rounded" style="border-left: 3px solid #dc3545;">
                         <strong><i class="fas fa-info-circle"></i> Reason for rejection:</strong><br>
                         <?php echo nl2br(htmlspecialchars($rejectedApplication['rejection_reason'] ?? 'No specific reason provided.')); ?>
                     </div>
                     
                     <?php if ($rejectedApplication['committee_remarks']): ?>
-                        <div style="background: #fff3cd; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px;">
+                        <div class="mt-2 p-2 bg-white rounded" style="font-size: 13px;">
                             <i class="fas fa-comment"></i> <strong>Committee notes:</strong> <?php echo nl2br(htmlspecialchars($rejectedApplication['committee_remarks'])); ?>
                         </div>
                     <?php endif; ?>
                     
-                    <p class="small text-muted mt-3">
+                    <p class="small text-muted mt-3 mb-0">
                         <i class="fas fa-lightbulb"></i> Tip: You can now apply to other clubs. Learn from this feedback and try again!
                     </p>
                 </div>
-                <div>
+                <div class="mt-3 mt-md-0 ms-3">
                     <a href="?clear_rejected=1" class="btn btn-outline-danger btn-sm">
-                   <i class="fas fa-times"></i> Dismiss
-                </a>
+                        <i class="fas fa-times"></i> Dismiss
+                    </a>
                 </div>
             </div>
         </div>
 
-    <!-- ========== IF STUDENT HAS NO CLUB, NO PENDING, NO REJECTED ========== -->
+    <!-- ========== IF STUDENT HAS NO CLUB AND NO PENDING APPLICATION ========== -->
     <?php else: ?>
         <div class="info-box">
-            <i class="fas fa-info-circle"></i> You are not a member of any club yet. You can only join ONE club. Browse and apply below.
+            <i class="fas fa-info-circle"></i> You are not a member of any club yet. You can only join <strong>ONE</strong> club. Browse and apply below.
         </div>
 
         <h4 class="mb-3 mt-3"><i class="fas fa-search"></i> Available Clubs</h4>
@@ -590,15 +737,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <div class="col-md-6 col-lg-4 mb-4">
                     <div class="club-card">
                         <div class="club-name"><?php echo htmlspecialchars($club['clubName']); ?></div>
-                        <div class="text-muted small mb-2">
+                        <div class="club-meta">
                             <i class="fas fa-tag"></i> <?php echo htmlspecialchars($club['clubCategory'] ?? 'General'); ?>
-                            | <i class="fas fa-users"></i> <?php echo $club['member_count']; ?> members
+                            &nbsp;|&nbsp;
+                            <i class="fas fa-users"></i> <?php echo $club['member_count']; ?> members
                         </div>
-                        <p class="small text-muted"><?php echo htmlspecialchars(substr($club['clubDescription'] ?? '', 0, 100)); ?>...</p>
-                        <button class="btn-apply" onclick="showApplicationForm(<?php echo $club['club_id']; ?>, '<?php echo htmlspecialchars($club['clubName']); ?>')">
-                            <i class="fas fa-hand-paper"></i> Apply to Join
-                        </button>
-                        <a href="club_view.php?id=<?php echo $club['club_id']; ?>" class="btn btn-sm btn-outline-secondary ms-2">Details</a>
+                        <div class="club-description">
+                            <?php echo htmlspecialchars(substr($club['clubDescription'] ?? '', 0, 100)); ?>...
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn-apply" onclick="showApplicationForm(<?php echo $club['club_id']; ?>, '<?php echo htmlspecialchars($club['clubName']); ?>')">
+                                <i class="fas fa-hand-paper"></i> Apply to Join
+                            </button>
+                            <a href="club_view.php?id=<?php echo $club['club_id']; ?>" class="btn-details">
+                                <i class="fas fa-eye"></i> Details
+                            </a>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -624,14 +778,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Why do you want to join this club? <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Why do you want to join this club? <span class="text-danger">*</span></label>
                         <textarea name="reason" class="form-control" rows="3" required 
                                   placeholder="Example: I am passionate about computing and want to improve my skills..."></textarea>
                         <small class="text-muted">Explain your interest in this club's activities.</small>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">What motivates you to contribute to this club? <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">What motivates you to contribute to this club? <span class="text-danger">*</span></label>
                         <textarea name="motivation" class="form-control" rows="3" required 
                                   placeholder="Example: I want to organize events, help fellow students, and contribute to club growth..."></textarea>
                         <small class="text-muted">Describe how you plan to actively participate and add value to the club.</small>
@@ -654,83 +808,52 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </div>
 
 <!-- Cancel Application Modal -->
-<div class="modal fade" id="cancelApplicationModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="cancelApplicationModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: 14px; overflow: hidden;">
-
-            <!-- Header -->
-            <div style="background: var(--umpsa-dark-blue); color: white; padding: 15px;">
-                <h5 style="margin: 0; font-weight: 600;">
-                    <i class="fas fa-exclamation-triangle" style="color: var(--umpsa-gold);"></i>
-                    Confirm Application Cancellation
-                </h5>
+        <div class="modal-content">
+            <div class="modal-header" style="background: var(--umpsa-dark-blue); color: white;">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Confirm Application Cancellation</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-
-            <!-- Body -->
-            <div style="padding: 20px; font-size: 14px; color: #333;">
-                <p style="margin-bottom: 10px;">
-                    You are about to cancel your club application.
-                </p>
-
-                <div style="background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 13px;">
-                    ⚠️ If you cancel, you will need to submit a new application to join a club again.
+            <div class="modal-body">
+                <p>You are about to cancel your club application.</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> If you cancel, you will need to submit a new application to join a club again.
                 </div>
             </div>
-
-            <!-- Footer -->
-            <div style="padding: 15px; display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Keep Application
-                </button>
-
-                <a href="?cancel=1" class="btn btn-danger">
-                    Yes, Cancel
-                </a>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Application</button>
+                <a href="?cancel=1" class="btn btn-danger">Yes, Cancel</a>
             </div>
-
         </div>
     </div>
 </div>
 
-<!-- Leave Club Modal -->
-<div class="modal fade" id="leaveClubModal" tabindex="-1" aria-hidden="true">
+<!-- Leave Club Confirmation Modal -->
+<div class="modal fade" id="leaveClubModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: 14px; overflow: hidden;">
-
-            <!-- Header -->
-            <div style="background: var(--umpsa-dark-blue); color: white; padding: 15px;">
-                <h5 style="margin: 0; font-weight: 600;">
-                    <i class="fas fa-exclamation-triangle" style="color: var(--umpsa-gold);"></i>
-                    Confirm Leave Club
-                </h5>
+        <div class="modal-content">
+            <div class="modal-header" style="background: #dc3545; color: white;">
+                <h5 class="modal-title"><i class="fas fa-sign-out-alt"></i> Leave Club</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-
-            <!-- Body -->
-            <div style="padding: 20px; font-size: 14px; color: #333;">
-                <p>
-                    You are about to leave your current club:
-                </p>
-
-                <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; font-weight: 600;">
-                    <?php echo htmlspecialchars($currentClub['clubName'] ?? ''); ?>
-                </div>
-
-                <div style="margin-top: 12px; background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 13px;">
-                    ⚠️ After leaving, you will be able to apply to another club, but you will lose your current membership.
+            <div class="modal-body">
+                <p>Are you sure you want to leave <strong id="leaveClubName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Important:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>You will lose your membership status immediately.</li>
+                        <li>You can join another club after leaving.</li>
+                        <li>Your event registrations will not be affected.</li>
+                        <li>This action cannot be undone.</li>
+                    </ul>
                 </div>
             </div>
-
-            <!-- Footer -->
-            <div style="padding: 15px; display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cancel
-                </button>
-
-                <a href="?leave=1" class="btn btn-danger">
-                    Yes, Leave Club
-                </a>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmLeaveBtn" class="btn btn-danger">Yes, Leave Club</a>
             </div>
-
         </div>
     </div>
 </div>
@@ -742,18 +865,19 @@ $current_page = basename($_SERVER['PHP_SELF']);
         document.getElementById('modalClubName').innerText = clubName;
         new bootstrap.Modal(document.getElementById('applicationModal')).show();
     }
-</script>
-<script>
-function openCancelApplicationModal() {
-    const modal = new bootstrap.Modal(document.getElementById('cancelApplicationModal'));
-    modal.show();
-}
+    
+    function openCancelApplicationModal() {
+        new bootstrap.Modal(document.getElementById('cancelApplicationModal')).show();
+    }
+
+    // Leave Club Modal
+    function openLeaveClubModal(clubName) {
+        document.getElementById('leaveClubName').innerHTML = clubName;
+        document.getElementById('confirmLeaveBtn').href = '?leave=1';
+        new bootstrap.Modal(document.getElementById('leaveClubModal')).show();
+    }
 </script>
 
-<script>
-function openLeaveClubModal() {
-    new bootstrap.Modal(document.getElementById('leaveClubModal')).show();
-}
-</script>
 </body>
 </html>
+<?php $pdo = null; ?>
