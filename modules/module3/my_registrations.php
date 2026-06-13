@@ -9,43 +9,70 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] != 3) {
 
 $user_id = $_SESSION['user_id'];
 
-// Handle cancellation
+// Handle cancellation with proper waiting list promotion
 if (isset($_GET['cancel'])) {
     $event_id = (int)$_GET['cancel'];
     
-    $stmt = $pdo->prepare("SELECT * FROM event_registration WHERE user_id = ? AND event_id = ? AND status NOT IN ('Attended', 'NoShow')");
-    $stmt->execute([$user_id, $event_id]);
-    
-    if ($stmt->fetch()) {
-        $pdo->prepare("UPDATE event_registration SET status = 'Cancelled', cancellation_date = NOW() WHERE user_id = ? AND event_id = ?")
-            ->execute([$user_id, $event_id]);
-
-        // Update event participant count
-        $pdo->prepare("UPDATE event SET current_participant = current_participant - 1 WHERE event_id = ?")
-            ->execute([$event_id]);
-
-        // Promote from waiting list
-        $waiting_stmt = $pdo->prepare("SELECT user_id FROM waiting_list WHERE event_id = ? ORDER BY position ASC LIMIT 1");
-        $waiting_stmt->execute([$event_id]);
-        $waiting_user = $waiting_stmt->fetch();
-
-        if ($waiting_user) {
-            $pdo->prepare("DELETE FROM waiting_list WHERE event_id = ? AND user_id = ?")
-                ->execute([$event_id, $waiting_user['user_id']]);
-
-            $pdo->prepare("INSERT INTO event_registration (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Confirmed')")
-                ->execute([$waiting_user['user_id'], $event_id]);
-
-            $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")
-                ->execute([$event_id]);
+    try {
+        $pdo->beginTransaction();
+        
+        // Get registration
+        $stmt = $pdo->prepare("SELECT registration_id FROM event_registration 
+                               WHERE user_id = ? AND event_id = ? AND status = 'Confirmed'");
+        $stmt->execute([$user_id, $event_id]);
+        $registration = $stmt->fetch();
+        
+        if ($registration) {
+            // Cancel registration
+            $pdo->prepare("UPDATE event_registration SET status = 'Cancelled', cancellation_date = NOW() 
+                           WHERE registration_id = ?")->execute([$registration['registration_id']]);
+            
+            // Decrease participant count
+            $pdo->prepare("UPDATE event SET current_participant = current_participant - 1 
+                           WHERE event_id = ?")->execute([$event_id]);
+            
+            // Get waiting list - FIXED: No placeholder in LIMIT
+            $waiting_stmt = $pdo->prepare("
+                SELECT waiting_id, user_id, position FROM waiting_list 
+                WHERE event_id = ? ORDER BY position ASC LIMIT 1
+            ");
+            $waiting_stmt->execute([$event_id]);
+            $waiting_user = $waiting_stmt->fetch();
+            
+            if ($waiting_user) {
+                $old_position = $waiting_user['position'];
+                
+                // Remove from waiting list
+                $pdo->prepare("DELETE FROM waiting_list WHERE waiting_id = ?")
+                    ->execute([$waiting_user['waiting_id']]);
+                
+                // Add to registration
+                $pdo->prepare("INSERT INTO event_registration (user_id, event_id, registration_date, status) 
+                               VALUES (?, ?, NOW(), 'Confirmed')")
+                    ->execute([$waiting_user['user_id'], $event_id]);
+                
+                // Update participant count
+                $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 
+                               WHERE event_id = ?")->execute([$event_id]);
+                
+                // FIXED: Reorder remaining waiting list positions
+                $pdo->prepare("UPDATE waiting_list SET position = position - 1 
+                               WHERE event_id = ? AND position > ?")
+                    ->execute([$event_id, $old_position]);
+            }
         }
-
-        $_SESSION['success_message'] = "Your registration has been cancelled successfully.";
+        
+        $pdo->commit();
+        header("Location: my_registrations.php?msg=cancelled");
+        exit();
+        
+    } catch(PDOException $e) {
+        $pdo->rollBack();
+        $_SESSION['error_message'] = "Error cancelling registration";
+        header("Location: my_registrations.php");
+        exit();
     }
-    header("Location: my_registrations.php");
-    exit();
 }
-
 // Get user's registrations
 $stmt = $pdo->prepare("
     SELECT er.*, e.event_title, e.event_date, e.event_time, e.venue, e.status as event_status, c.clubName, e.points_awarded
@@ -199,7 +226,7 @@ $registrations = $stmt->fetchAll();
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
             <span class="badge-role">Student</span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="table-card">
@@ -244,9 +271,9 @@ $registrations = $stmt->fetchAll();
                     </td>
                         <td>
                             <!-- QR Button -->
-                            <a href="../module4/generate_qr.php?event_id=<?php echo $reg['event_id']; ?>" target="_blank" class="btn-qr">
-                                <i class="fas fa-qrcode"></i> QR
-                            </a>
+                           <a href="../module4/generate_qr.php?event_id=<?php echo $reg['event_id']; ?>&return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" target="_blank" class="btn-qr">
+    <i class="fas fa-qrcode"></i> QR
+</a>
                             
                             <!-- Cancel Button -->
                             <?php if ($reg['status'] == 'Confirmed' && strtotime($reg['event_date']) > time()): ?>
@@ -295,6 +322,8 @@ $registrations = $stmt->fetchAll();
         </div>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
 
 <script>
 let selectedEventId = null;

@@ -58,20 +58,7 @@ $event_id = $pdo->lastInsertId();
 // QR code data (what will be scanned)
 $qr_data = "event_id=" . $event_id . "&club_id=" . $selected_club_id;
 
-// Create qrcodes folder if not exists
-$qr_folder = '../../assets/qrcodes/';
-if (!file_exists($qr_folder)) {
-    mkdir($qr_folder, 0777, true);
-}
 
-// Generate QR code file
-// Note: You need to download phpqrcode library first
-// Place the phpqrcode folder inside 'includes' directory
-include_once '../../includes/phpqrcode/qrlib.php';
-
-$qr_file = $qr_folder . 'event_' . $event_id . '.png';
-QRcode::png($qr_data, $qr_file, QR_ECLEVEL_L, 10);
-// ========== END QR CODE GENERATION ==========
 
 $success = "Event created successfully!";
             
@@ -264,7 +251,7 @@ $success = "Event created successfully!";
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'User'); ?>
             <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : 'Committee'; ?></span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="form-card">
@@ -333,5 +320,8 @@ $success = "Event created successfully!";
         </form>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
+
 </body>
 </html>

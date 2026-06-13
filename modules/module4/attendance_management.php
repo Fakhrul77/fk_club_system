@@ -118,33 +118,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             $actual_user_id = $reg['user_id'] ?? null;
 
             if ($actual_user_id) {
+                // QR scan always marks as "Present" (on time = +10 points)
+                $attendance_status = 'Present';
+                
                 $stmt = $pdo->prepare(
                     "INSERT INTO attendance (registration_id, event_id, attendanceStatus, checkInTime, user_id) 
-                     VALUES (?, ?, 'Present', NOW(), ?)"
+                     VALUES (?, ?, ?, NOW(), ?)"
                 );
-                if ($stmt->execute([$registration_id, $scanned_event_id, $actual_user_id])) {
+                if ($stmt->execute([$registration_id, $scanned_event_id, $attendance_status, $actual_user_id])) {
+                    // Calculate and record points (Present = +10)
+                    $calculator = new PointsCalculator($pdo);
+                    $points = $calculator->calculatePointsByStatus($attendance_status);
+                    $calculator->recordPoints($actual_user_id, $scanned_event_id, $points);
+                    
+                    // Update recognition level
+                    $total = $calculator->getTotalPoints($actual_user_id);
+                    $recognizer = new RecognitionLevelDeterminer($pdo);
+                    $recognizer->updateRecognitionLevel($actual_user_id, $total);
+                    
                     // Get student info for feedback
                     $stmt = $pdo->prepare(
-                        "SELECT u.*, er.user_id AS reg_user_id 
-                         FROM event_registration er 
-                         JOIN users u ON er.user_id = u.user_id 
-                         WHERE er.registration_id = ?"
+                        "SELECT u.name, u.studentId FROM users u WHERE u.user_id = ?"
                     );
-                    $stmt->execute([$registration_id]);
+                    $stmt->execute([$actual_user_id]);
                     $student = $stmt->fetch();
-                    if ($student) {
-                        $calculator = new PointsCalculator($pdo);
-                        $points = $calculator->calculateAttendancePoints($student['reg_user_id'], $scanned_event_id);
-                        $calculator->recordPoints($student['reg_user_id'], $scanned_event_id, $points);
-                        $total = $calculator->getTotalPoints($student['reg_user_id']);
-                        $recognizer = new RecognitionLevelDeterminer($pdo);
-                        $recognizer->updateRecognitionLevel($student['reg_user_id'], $total);
-                        $success = "Attendance recorded for <strong>" . htmlspecialchars($student['name']) . "</strong>"
-                                 . " (" . htmlspecialchars($student['matrix_number'] ?? $student['studentId']) . ")"
-                                 . " — <strong>{$points} pts</strong> awarded.";
-                    } else {
-                        $success = "Attendance recorded successfully.";
-                    }
+                    
+                    $success = "Attendance recorded for <strong>" . htmlspecialchars($student['name']) . "</strong>"
+                             . " (" . htmlspecialchars($student['studentId']) . ")"
+                             . " — <strong>+{$points} pts</strong> awarded.";
                 } else {
                     $error = "Failed to record attendance. Please try again.";
                 }
@@ -159,7 +160,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'manual_mark') {
     $registration_id = $_POST['registration_id'] ?? null;
     $attendance_status = $_POST['attendance_status'] ?? 'Present';
-    $excused_reason = trim($_POST['excused_reason'] ?? '');
     $scanned_event_id = $_POST['event_id'] ?? null;
 
     if ($registration_id) {
@@ -172,31 +172,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         if (!$actual_user_id) {
             $error = "Could not find user for this registration.";
         } else {
+            // Check if attendance already exists
             $stmt = $pdo->prepare("SELECT * FROM attendance WHERE registration_id = ? AND event_id = ?");
             $stmt->execute([$registration_id, $scanned_event_id]);
 
+            $calculator = new PointsCalculator($pdo);
+            
             if ($stmt->rowCount() > 0) {
+                // Update existing attendance
                 $stmt = $pdo->prepare("UPDATE attendance SET attendanceStatus = ?, checkInTime = NOW() WHERE registration_id = ? AND event_id = ?");
                 $stmt->execute([$attendance_status, $registration_id, $scanned_event_id]);
-                $success = "Attendance updated successfully";
+                
+                // Update points based on new status
+                $points = $calculator->calculatePointsByStatus($attendance_status);
+                $calculator->recordPoints($actual_user_id, $scanned_event_id, $points);
+                $success = "Attendance updated to: " . $attendance_status;
             } else {
+                // Insert new attendance
                 $stmt = $pdo->prepare("INSERT INTO attendance (registration_id, event_id, attendanceStatus, checkInTime, user_id) VALUES (?, ?, ?, NOW(), ?)");
                 if ($stmt->execute([$registration_id, $scanned_event_id, $attendance_status, $actual_user_id])) {
-                    $success = "Attendance recorded successfully";
+                    // Calculate and record points based on status
+                    $points = $calculator->calculatePointsByStatus($attendance_status);
+                    $calculator->recordPoints($actual_user_id, $scanned_event_id, $points);
+                    $success = "Attendance recorded as: " . $attendance_status;
                 } else {
                     $error = "Failed to record attendance";
                 }
             }
-
-            // Trigger points calculation if marked Present
-            if (!$error && $attendance_status === 'Present') {
-                $calculator = new PointsCalculator($pdo);
-                $points = $calculator->calculateAttendancePoints($actual_user_id, $scanned_event_id);
-                $calculator->recordPoints($actual_user_id, $scanned_event_id, $points);
+            
+            // Update recognition level
+            if (empty($error)) {
                 $total = $calculator->getTotalPoints($actual_user_id);
                 $recognizer = new RecognitionLevelDeterminer($pdo);
                 $recognizer->updateRecognitionLevel($actual_user_id, $total);
-                $success .= " — <strong>{$points} pts</strong> awarded.";
+                
+                // Get the points awarded for display
+                $points = $calculator->calculatePointsByStatus($attendance_status);
+                $points_text = '';
+                if ($points > 0) {
+                    $points_text = " — <strong>+{$points} pts</strong> awarded.";
+                } elseif ($points < 0) {
+                    $points_text = " — <strong>{$points} pts</strong> deducted.";
+                }
+                $success .= $points_text;
             }
         }
     }
@@ -274,6 +292,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     background: var(--umpsa-gold);
     color: var(--umpsa-dark-blue);
 }
+
+
         /* Main Content */
         .main-content { margin-left: 260px; padding: 20px; }
         
@@ -526,15 +546,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         <?php endforeach; ?>
     </select>
 </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Status</label>
-                            <select name="attendance_status" class="form-select" required
-                                    onchange="document.getElementById('reasonBox').style.display=this.value==='Excused'?'block':'none'">
-                                <option value="Present">Present</option>
-                                <option value="Absent">Absent</option>
-                                <option value="Excused">Excused</option>
-                            </select>
-                        </div>
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Status</label>
+         <select name="attendance_status" class="form-select" required
+            onchange="document.getElementById('reasonBox').style.display=this.value==='Excused'?'block':'none'">
+        <option value="Present">Present (+10 points)</option>
+        <option value="Late">Late (+5 points)</option>
+        <option value="Volunteer">Volunteer/Helper (+5 points)</option>
+        <option value="Absent">Absent (-10 points)</option>
+    </select>
+</div>
                         <div class="mb-3" id="reasonBox" style="display:none;">
                             <label class="form-label fw-semibold">Reason</label>
                             <input type="text" name="excused_reason" class="form-control" placeholder="e.g. Medical certificate">
@@ -585,26 +606,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($registered_students as $i => $st):
-                            $att = $pdo->prepare("SELECT * FROM attendance WHERE registration_id = ? AND event_id = ?");
-                            $att->execute([$st['registration_id'], $event_id]);
-                            $att_row = $att->fetch();
-                            $status = $att_row['attendanceStatus'] ?? 'Pending';
-                            $checkin = $att_row['checkInTime'] ?? null;
-                            if ($status == 'Present') $sc = 'success';
-                            elseif ($status == 'Absent') $sc = 'danger';
-                            elseif ($status == 'Excused') $sc = 'warning';
-                            else $sc = 'secondary';
-                        ?>
-                        <tr>
-                            <td><?php echo $i+1; ?></td>
-                            <td><?php echo htmlspecialchars($st['name']); ?></td>
-                            <td><?php echo htmlspecialchars($st['studentId']); ?></td>
-                            <td><span class="badge bg-<?php echo $sc; ?>"><?php echo $status; ?></span></td>
-                            <td><?php echo $checkin ? date('H:i:s', strtotime($checkin)) : '—'; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
+    <?php foreach ($registered_students as $i => $st):
+        $att = $pdo->prepare("SELECT * FROM attendance WHERE registration_id = ? AND event_id = ?");
+        $att->execute([$st['registration_id'], $event_id]);
+        $att_row = $att->fetch();
+        $status = $att_row['attendanceStatus'] ?? 'Pending';
+        $checkin = $att_row['checkInTime'] ?? null;
+    ?>
+    <tr>
+        <td class="text-muted"><?php echo $i+1; ?></td>
+        <td><?php echo htmlspecialchars($st['name']); ?></td>
+        <td><?php echo htmlspecialchars($st['studentId']); ?></td>
+        <td>
+            <?php if ($status == 'Present'): ?>
+                <span class="badge bg-success"><i class="fas fa-check-circle"></i> Present (+10)</span>
+            <?php elseif ($status == 'Late'): ?>
+                <span class="badge bg-warning"><i class="fas fa-clock"></i> Late (+5)</span>
+            <?php elseif ($status == 'Volunteer'): ?>
+                <span class="badge bg-info"><i class="fas fa-hands-helping"></i> Volunteer (+5)</span>
+            <?php elseif ($status == 'Absent'): ?>
+                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> Absent (-10)</span>
+            <?php elseif ($status == 'Excused'): ?>
+                <span class="badge bg-secondary"><i class="fas fa-check"></i> Excused</span>
+            <?php else: ?>
+                <span class="badge bg-secondary"><i class="fas fa-clock"></i> Pending</span>
+            <?php endif; ?>
+        </td>
+        <td><?php echo $checkin ? date('H:i:s', strtotime($checkin)) : '—'; ?></td>
+    </tr>
+    <?php endforeach; ?>
+</tbody>
                 </table>
             </div>
         </div>

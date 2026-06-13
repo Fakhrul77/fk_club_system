@@ -37,10 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $venue = trim($_POST['venue']);
     $max_participant = (int)$_POST['max_participant'];
     
+    // Store old max_participant BEFORE update
+    $old_max_participant = $event['max_participant'];
+    
     if (empty($event_title) || empty($event_date) || empty($venue) || $max_participant <= 0) {
         $error = "Please fill in all required fields.";
     } else {
         try {
+            // Update event
             $stmt = $pdo->prepare("
                 UPDATE event SET 
                     event_title = ?, event_description = ?, event_date = ?, 
@@ -49,12 +53,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ");
             $stmt->execute([$event_title, $event_description, $event_date, $event_time, $venue, $max_participant, $event_id]);
             
-            $success = "Event updated successfully!";
+            // ========== WAITING LIST PROMOTION ==========
+            // Check if capacity was INCREASED
+            if ($max_participant > $old_max_participant) {
+    $spots_opened = $max_participant - $old_max_participant;
+    
+    $waiting_stmt = $pdo->prepare("
+        SELECT waiting_id, user_id, position FROM waiting_list 
+        WHERE event_id = ? 
+        ORDER BY position ASC 
+        LIMIT $spots_opened
+    ");
+    $waiting_stmt->execute([$event_id]);
+    $waiting_users = $waiting_stmt->fetchAll();
+    
+    $promoted_count = 0;
+    $promoted_positions = [];  // ← NEW: Track promoted positions
+    
+    foreach ($waiting_users as $waiting_user) {
+        $promoted_positions[] = $waiting_user['position'];  // ← NEW: Store position
+        
+        $pdo->prepare("DELETE FROM waiting_list WHERE waiting_id = ?")->execute([$waiting_user['waiting_id']]);
+        $pdo->prepare("INSERT INTO event_registration (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Confirmed')")->execute([$waiting_user['user_id'], $event_id]);
+        $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")->execute([$event_id]);
+        $promoted_count++;
+    }
+    
+    // ← NEW: Reorder remaining waiting list positions
+    if (!empty($promoted_positions)) {
+        $pdo->prepare("SET @pos = 0")->execute();
+        $pdo->prepare("UPDATE waiting_list SET position = (@pos := @pos + 1) WHERE event_id = ? ORDER BY position ASC")
+            ->execute([$event_id]);
+    }
+    
+    if ($promoted_count > 0) {
+        $success .= " $promoted_count student(s) promoted from waiting list!";
+    }
+}
+            // ========== END WAITING LIST PROMOTION ==========
             
             // Refresh event data
             $stmt = $pdo->prepare("SELECT * FROM event WHERE event_id = ?");
             $stmt->execute([$event_id]);
             $event = $stmt->fetch();
+            
+            if (empty($success)) {
+                $success = "Event updated successfully!";
+            }
         } catch(PDOException $e) {
             $error = "Database error: " . $e->getMessage();
         }
@@ -244,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'User'); ?>
             <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : 'Committee'; ?></span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="form-card">
@@ -301,5 +346,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </form>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
+
 </body>
 </html>

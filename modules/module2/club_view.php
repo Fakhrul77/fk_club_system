@@ -184,12 +184,66 @@ else $return_page = "club_dashboard_student.php";
     color: var(--umpsa-dark-blue);
 }
 
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    width: 380px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+.modal-btn-logout {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.modal-btn-logout:hover {
+    background: #c82333;
+}
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.modal-btn-cancel:hover {
+    background: #5a6268;
+}
+
         .main-content { margin-left: 260px; padding: 20px; }
         .top-nav { background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .welcome-text { font-size: 16px; font-weight: 500; }
         .badge-role { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; }
         .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; }
-        
         .club-header { background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue)); color: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; }
         .stat-box { background: white; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .stat-number { font-size: 32px; font-weight: bold; color: var(--umpsa-blue); }
@@ -314,7 +368,9 @@ else $return_page = "club_dashboard_student.php";
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
             <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : ($user_role == 2 ? 'Committee' : 'Student'); ?></span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()">
+    <i class="fas fa-sign-out-alt"></i> Logout
+</a>
     </div>
 
     <div class="mb-3"><a href="<?php echo $return_page; ?>" class="btn-back"><i class="fas fa-arrow-left"></i> Back</a></div>
@@ -445,6 +501,19 @@ else $return_page = "club_dashboard_student.php";
     </div>
 </div>
 
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
+        <h4>Confirm Logout</h4>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+            <button id="confirmLogout" class="modal-btn-logout">Yes, Logout</button>
+            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
     function openApplicationModal() {
         document.getElementById('applicationModal').style.display = 'flex';
@@ -461,6 +530,26 @@ else $return_page = "club_dashboard_student.php";
             modal.style.display = 'none';
         }
     }
+</script>
+
+<script>
+function showLogoutConfirm() {
+    document.getElementById('logoutModal').style.display = 'flex';
+}
+function closeLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'none';
+}
+document.getElementById('confirmLogout').onclick = function() {
+    window.location.href = '../../logout.php';
+};
+document.getElementById('cancelLogout').onclick = function() {
+    closeLogoutModal();
+};
+window.onclick = function(event) {
+    if (event.target == document.getElementById('logoutModal')) {
+        closeLogoutModal();
+    }
+};
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

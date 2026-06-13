@@ -374,6 +374,35 @@ if ($totalPoints >= 80) {
             background: var(--umpsa-light-blue);
         }
         
+       
+
+/* Clean button for View All Registrations */
+.view-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.view-all-btn:hover {
+    background: linear-gradient(135deg, var(--umpsa-dark-blue), var(--umpsa-blue));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,59,92,0.3);
+    color: white;
+}
+
+.view-all-btn i {
+    font-size: 12px;
+}
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -632,7 +661,10 @@ if ($totalPoints >= 80) {
                         </div>
                     </div>
                 <?php endforeach; ?>
-                <div class="text-end mt-3"><a href="../module3/my_registrations.php" class="small">View All Registrations <i class="fas fa-arrow-right"></i></a></div>
+                <div class="text-end mt-3"><a href="../module3/my_registrations.php" class="view-all-btn">
+    <i class="fas fa-calendar-alt"></i> View All Registrations
+    <i class="fas fa-arrow-right"></i>
+</a></div>
             <?php endif; ?>
         </div>
     </div>

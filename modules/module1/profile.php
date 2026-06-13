@@ -14,23 +14,83 @@ $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
 
-$stmt = $pdo->prepare("SELECT c.clubName FROM club_membership cm JOIN club c ON cm.club_id = c.club_id WHERE cm.user_id = ? AND cm.status = 'Active'");
-$stmt->execute([$user_id]);
-$userClubs = $stmt->fetchAll();
+// ========== Get user's clubs based on role ==========
+$userClubs = [];
 
+if ($user_role == 2) {
+    $stmt = $pdo->prepare("
+        SELECT c.clubName, cp.positionName, cc.assignedDate, cc.committee_id
+        FROM club_committee cc 
+        JOIN club c ON cc.club_id = c.club_id 
+        LEFT JOIN committee_position cp ON cc.position_id = cp.position_id 
+        WHERE cc.user_id = ? AND cc.status = 'Active'
+    ");
+    $stmt->execute([$user_id]);
+    $userClubs = $stmt->fetchAll();
+} elseif ($user_role == 3) {
+    $stmt = $pdo->prepare("
+        SELECT c.clubName, cm.joinDate, cm.membership_id
+        FROM club_membership cm 
+        JOIN club c ON cm.club_id = c.club_id 
+        WHERE cm.user_id = ? AND cm.status = 'Active'
+    ");
+    $stmt->execute([$user_id]);
+    $userClubs = $stmt->fetchAll();
+}
+
+// ========== UPDATE PROFILE HANDLER ==========
 $update_success = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
-    $phone = $_POST['phone'] ?? '';
+    $name = trim($_POST['name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
     $programme = $_POST['programme'] ?? '';
     $year = $_POST['year'] ?? '';
     
-    $stmt = $pdo->prepare("UPDATE users SET phone = ?, programme = ?, yearsOfStud = ? WHERE user_id = ?");
-    $stmt->execute([$phone, $programme, $year, $user_id]);
+    $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ?, phone = ?, programme = ?, yearsOfStud = ? WHERE user_id = ?");
+    $stmt->execute([$name, $email, $phone, $programme, $year, $user_id]);
     $update_success = "Profile updated successfully!";
     
     $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch();
+}
+
+// ========== PASSWORD CHANGE HANDLER (PLAIN TEXT VERSION) ==========
+$password_success = '';
+$password_error = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
+    $current_password = $_POST['current_password'];
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+        $password_error = "Please fill in all password fields.";
+    } elseif (strlen($new_password) < 6) {
+        $password_error = "New password must be at least 6 characters.";
+    } elseif ($new_password !== $confirm_password) {
+        $password_error = "New passwords do not match.";
+    } else {
+        // Get stored password (plain text)
+        $stmt = $pdo->prepare("SELECT passwordHash FROM users WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        $result = $stmt->fetch();
+        $stored = $result['passwordHash'] ?? '';
+        
+        // DIRECT PLAIN TEXT COMPARISON
+        if ($current_password == $stored) {
+            // Store new password as plain text
+            $stmt = $pdo->prepare("UPDATE users SET passwordHash = ? WHERE user_id = ?");
+            if ($stmt->execute([$new_password, $user_id])) {
+                $password_success = "Password changed successfully! Please login again with your new password.";
+            } else {
+                $password_error = "Database error. Please try again.";
+            }
+        } else {
+            $password_error = "Current password is incorrect.";
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -47,64 +107,73 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--umpsa-light-blue); overflow-x: hidden; }
         
         .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 260px;
-    background: var(--umpsa-dark-blue);
-    color: white;
-    z-index: 1000;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-}
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 260px;
+            background: var(--umpsa-dark-blue);
+            color: white;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
 
-.sidebar-header {
-    padding: 20px;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
 
-.sidebar-header h4 {
-    margin: 10px 0 0 0;
-    font-size: 18px;
-}
+        .sidebar-header h4 {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+        }
 
-.sidebar-header p {
-    margin: 5px 0 0 0;
-    font-size: 11px;
-    opacity: 0.7;
-}
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 11px;
+            opacity: 0.7;
+        }
 
-.sidebar-menu {
-    padding: 20px 0;
-}
+        .sidebar-menu {
+            padding: 20px 0;
+        }
 
-.sidebar-menu a {
-    display: block;
-    padding: 12px 25px;
-    margin: 5px 0;
-    color: rgba(255,255,255,0.8);
-    text-decoration: none;
-    transition: all 0.3s;
-    font-size: 14px;
-}
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 25px;
+            margin: 5px 0;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
 
-.sidebar-menu a:hover {
-    background: rgba(253,184,19,0.2);
-    color: white;
-}
+        .sidebar-menu a:hover {
+            background: rgba(253,184,19,0.2);
+            color: white;
+        }
 
-.sidebar-menu a i {
-    margin-right: 10px;
-    width: 20px;
-}
+        .sidebar-menu a i {
+            margin-right: 10px;
+            width: 20px;
+        }
 
-.sidebar-menu a.active {
-    background: var(--umpsa-gold);
-    color: var(--umpsa-dark-blue);
-}
+        .sidebar-menu a.active {
+            background: var(--umpsa-gold);
+            color: var(--umpsa-dark-blue);
+        }
+        
         .main-content { margin-left: 260px; padding: 20px; }
         
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
         .top-nav {
             background: white;
             padding: 15px 25px;
@@ -133,13 +202,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         .info-value { flex: 1; color: #333; }
         .info-value input, .info-value select { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; }
         .club-tag { background: var(--umpsa-light-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; display: inline-block; margin: 3px; }
-        .action-buttons { margin-top: 25px; display: flex; gap: 15px; }
+        .action-buttons { margin-top: 25px; display: flex; gap: 15px; flex-wrap: wrap; }
         .btn-save { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+        .btn-save:hover { background: #218838; }
         .btn-change-password { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+        .btn-change-password:hover { background: #e5a600; }
         .btn-cancel { background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-cancel:hover { background: #5a6268; color: white; }
         .alert-success { background: #d4edda; color: #155724; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
         
-        /* Logout Modal */
+        .modal-btn-logout {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.modal-btn-logout:hover {
+    background: #c82333;
+}
+        /* Password Modal Styles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -156,9 +239,72 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
             background: white;
             border-radius: 16px;
             padding: 25px;
-            width: 380px;
+            width: 420px;
+            max-width: 90%;
             text-align: center;
         }
+        .modal-content h4 {
+            color: var(--umpsa-blue);
+            margin-bottom: 20px;
+        }
+        .modal-content .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .modal-content input:focus {
+            outline: none;
+            border-color: var(--umpsa-gold);
+            box-shadow: 0 0 0 3px rgba(253,184,19,0.1);
+        }
+        .modal-content input.valid {
+            border-color: #28a745;
+        }
+        .modal-content input.invalid {
+            border-color: #dc3545;
+        }
+        .password-strength {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .strength-weak { color: #dc3545; }
+        .strength-medium { color: #ffc107; }
+        .strength-strong { color: #28a745; }
+        .requirement-list {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            text-align: left;
+        }
+        .requirement-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .requirement-list li {
+            margin: 5px 0;
+            color: #666;
+        }
+        .requirement-list li.met {
+            color: #28a745;
+            text-decoration: line-through;
+        }
+        
         .modal-buttons {
             display: flex;
             gap: 15px;
@@ -166,12 +312,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
             margin-top: 20px;
         }
         .modal-btn-confirm {
-            background: #dc3545;
+            background: #28a745;
             color: white;
             border: none;
             padding: 10px 25px;
             border-radius: 8px;
             cursor: pointer;
+        }
+        .modal-btn-confirm:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
         .modal-btn-cancel {
             background: #6c757d;
@@ -181,6 +331,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
             border-radius: 8px;
             cursor: pointer;
         }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
         
         @media (max-width: 768px) {
             .sidebar { width: 70px; }
@@ -189,90 +347,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
             .profile-container { grid-template-columns: 1fr; }
             .info-row { flex-direction: column; align-items: flex-start; gap: 10px; }
             .info-label { width: 100%; }
+            .action-buttons { flex-direction: column; }
+            .action-buttons .btn-save, .action-buttons .btn-change-password, .action-buttons .btn-cancel {
+                width: 100%;
+                text-align: center;
+            }
         }
     </style>
 </head>
 <body>
     
-    <!-- ========== DYNAMIC SIDEBAR BASED ON ROLE ========== -->
-    <div class="sidebar">
+<div class="sidebar">
     <div class="sidebar-header">
-        <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
+        <img src="../../assets/images/logo.png" alt="FK Club System Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
         <h4>FK Club System</h4>
         <p>Faculty of Computing</p>
     </div>
     <div class="sidebar-menu">
-        <?php if ($user_role == 1): // ADMIN SIDEBAR ?>
-            <a href="dashboard_admin.php">
-                <i class="fas fa-home"></i> <span>Dashboard</span>
-            </a>
-            <a href="manage_users.php">
-                <i class="fas fa-users"></i> <span>Manage Users</span>
-            </a>
-            <a href="../module2/club_redirect.php">
-                <i class="fas fa-building"></i> <span>Manage Clubs</span>
-            </a>
-            <a href="../module3/event_dashboard.php">
-               <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
-            </a>
-            <a href="../module3/manage_events.php">
-                <i class="fas fa-calendar-alt"></i> <span>Events</span>
-            </a>
-            <a href="../module4/attendance_dashboard.php">
-                <i class="fas fa-chart-bar"></i> <span>Attendance</span>
-            </a>
-            <a href="../module4/generate_report.php">
-                <i class="fas fa-file-alt"></i> <span>Reports</span>
-            </a>
-            <a href="profile.php" class="active">
-                <i class="fas fa-user"></i> <span>Profile</span>
-            </a>
-            
-        <?php elseif ($user_role == 2): // COMMITTEE SIDEBAR ?>
-            <a href="dashboard_committee.php">
-                <i class="fas fa-home"></i> <span>Dashboard</span>
-            </a>
-            <a href="../module2/club_dashboard_committee.php">
-                <i class="fas fa-building"></i> <span>My Club</span>
-            </a>
-            <a href="../module3/event_dashboard.php">
-               <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
-            </a>
-            <a href="../module3/manage_events.php">
-                <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
-            </a>
-            <a href="../module4/attendance_management.php">
-                <i class="fas fa-qrcode"></i> <span>Record Attendance</span>
-            </a>
-            <a href="../module4/attendance_dashboard.php">
-                <i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span>
-            </a>
-            <a href="../module4/generate_report.php">
-                <i class="fas fa-file-alt"></i> <span>Reports</span>
-            </a>
-            <a href="profile.php" class="active">
-                <i class="fas fa-user"></i> <span>Profile</span>
-            </a>
-            
-        <?php else: // STUDENT SIDEBAR ?>
-            <a href="dashboard_student.php">
-                <i class="fas fa-home"></i> <span>Dashboard</span>
-            </a>
-            <a href="../module2/club_dashboard_student.php">
-                <i class="fas fa-building"></i> <span>Browse Clubs</span>
-            </a>
-            <a href="../module3/browse_events.php">
-                <i class="fas fa-calendar-alt"></i> <span>Browse Events</span>
-            </a>
-            <a href="../module3/my_registrations.php">
-                <i class="fas fa-list"></i> <span>My Registrations</span>
-            </a>
-            <a href="../module4/my_points_recognition.php">
-                <i class="fas fa-star"></i> <span>My Points</span>
-            </a>
-            <a href="profile.php" class="active">
-                <i class="fas fa-user"></i> <span>Profile</span>
-            </a>
+        <?php if ($user_role == 1): ?>
+            <a href="dashboard_admin.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
+            <a href="manage_users.php"><i class="fas fa-users"></i> <span>Manage Users</span></a>
+            <a href="../module2/club_redirect.php"><i class="fas fa-building"></i> <span>Manage Clubs</span></a>
+            <a href="../module3/event_dashboard.php"><i class="fas fa-chart-line"></i> <span>Event Dashboard</span></a>
+            <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Events</span></a>
+            <a href="../module4/attendance_dashboard.php"><i class="fas fa-chart-bar"></i> <span>Attendance</span></a>
+            <a href="../module4/generate_report.php"><i class="fas fa-file-alt"></i> <span>Reports</span></a>
+            <a href="profile.php" class="active"><i class="fas fa-user"></i> <span>Profile</span></a>
+        <?php elseif ($user_role == 2): ?>
+            <a href="dashboard_committee.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
+            <a href="../module2/club_dashboard_committee.php"><i class="fas fa-building"></i> <span>My Club</span></a>
+            <a href="../module3/event_dashboard.php"><i class="fas fa-chart-line"></i> <span>Event Dashboard</span></a>
+            <a href="../module3/manage_events.php"><i class="fas fa-calendar-alt"></i> <span>Manage Events</span></a>
+            <a href="../module4/attendance_management.php"><i class="fas fa-qrcode"></i> <span>Record Attendance</span></a>
+            <a href="../module4/attendance_dashboard.php"><i class="fas fa-chart-bar"></i> <span>Attendance Dashboard</span></a>
+            <a href="../module4/generate_report.php"><i class="fas fa-file-alt"></i> <span>Reports</span></a>
+            <a href="profile.php" class="active"><i class="fas fa-user"></i> <span>Profile</span></a>
+        <?php else: ?>
+            <a href="dashboard_student.php"><i class="fas fa-home"></i> <span>Dashboard</span></a>
+            <a href="../module2/club_dashboard_student.php"><i class="fas fa-building"></i> <span>Browse Clubs</span></a>
+            <a href="../module3/browse_events.php"><i class="fas fa-calendar-alt"></i> <span>Browse Events</span></a>
+            <a href="../module3/my_registrations.php"><i class="fas fa-list"></i> <span>My Registrations</span></a>
+            <a href="../module4/my_points_recognition.php"><i class="fas fa-star"></i> <span>My Points</span></a>
+            <a href="profile.php" class="active"><i class="fas fa-user"></i> <span>Profile</span></a>
         <?php endif; ?>
     </div>
 </div>
@@ -307,6 +423,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         <div class="profile-info">
             <?php if ($update_success): ?>
                 <div class="alert-success"><i class="fas fa-check-circle"></i> <?php echo $update_success; ?></div>
+            <?php endif; ?>
+
+            <?php if ($password_success): ?>
+                <div class="alert-success"><i class="fas fa-check-circle"></i> <?php echo $password_success; ?></div>
+            <?php endif; ?>
+            
+            <?php if ($password_error): ?>
+                <div class="alert-error"><i class="fas fa-exclamation-circle"></i> <?php echo $password_error; ?></div>
             <?php endif; ?>
 
             <form method="POST">
@@ -361,25 +485,61 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
                 <?php endif; ?>
 
                 <div class="info-section">
-                    <h5><i class="fas fa-building"></i> My Clubs</h5>
+                    <h5><i class="fas fa-building"></i> 
+                        <?php 
+                            if ($user_role == 2) echo "My Committee Assignment";
+                            elseif ($user_role == 3) echo "My Club";
+                            else echo "Club Information";
+                        ?>
+                    </h5>
                     <?php if (empty($userClubs)): ?>
-                        <p class="text-muted">No clubs joined yet.</p>
+                        <p class="text-muted">
+                            <?php 
+                                if ($user_role == 2) echo "You are not assigned to any committee yet.";
+                                elseif ($user_role == 3) echo "You haven't joined any clubs yet.";
+                                else echo "Administrators are not assigned to clubs.";
+                            ?>
+                        </p>
                     <?php else: ?>
                         <?php foreach ($userClubs as $club): ?>
-                            <span class="club-tag"><?php echo htmlspecialchars($club['clubName']); ?></span>
+                            <div class="club-tag" style="display: inline-block; background: var(--umpsa-light-blue); padding: 8px 15px; border-radius: 25px; margin: 5px;">
+                                <i class="fas fa-building"></i> 
+                                <strong><?php echo htmlspecialchars($club['clubName']); ?></strong>
+                                <?php if ($user_role == 2 && isset($club['positionName'])): ?>
+                                    <span class="badge" style="background: var(--umpsa-gold); color: var(--umpsa-dark-blue); margin-left: 8px;">
+                                        <i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($club['positionName']); ?>
+                                    </span>
+                                <?php endif; ?>
+                                <?php if (isset($club['joinDate']) && $user_role == 3): ?>
+                                    <small class="text-muted">(Member since <?php echo date('M Y', strtotime($club['joinDate'])); ?>)</small>
+                                <?php endif; ?>
+                                <?php if (isset($club['assignedDate']) && $user_role == 2): ?>
+                                    <small class="text-muted">(Assigned <?php echo date('M Y', strtotime($club['assignedDate'])); ?>)</small>
+                                <?php endif; ?>
+                            </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
 
                 <div class="action-buttons">
-                    <button type="submit" name="update_profile" class="btn-save"><i class="fas fa-save"></i> Save Changes</button>
-                    <button type="button" class="btn-change-password" onclick="showPasswordModal()"><i class="fas fa-key"></i> Change Password</button>
+                    <button type="submit" name="update_profile" class="btn-save">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="btn-change-password" onclick="showPasswordModal()">
+                        <i class="fas fa-key"></i> Change Password
+                    </button>
                     <?php if ($user_role == 1): ?>
-                        <a href="dashboard_admin.php" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                        <a href="dashboard_admin.php" class="btn-cancel">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
                     <?php elseif ($user_role == 2): ?>
-                        <a href="dashboard_committee.php" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                        <a href="dashboard_committee.php" class="btn-cancel">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
                     <?php else: ?>
-                        <a href="dashboard_student.php" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                        <a href="dashboard_student.php" class="btn-cancel">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
                     <?php endif; ?>
                 </div>
             </form>
@@ -387,21 +547,56 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
     </div>
 </div>
 
-<!-- Change Password Modal -->
+<!-- Enhanced Change Password Modal with 6 Characters Requirement -->
 <div id="passwordModal" class="modal-overlay">
     <div class="modal-content">
         <h4><i class="fas fa-lock"></i> Change Password</h4>
-        <form method="POST">
-            <input type="password" name="current_password" placeholder="Current Password" required>
-            <input type="password" name="new_password" placeholder="New Password" required>
-            <input type="password" name="confirm_password" placeholder="Confirm New Password" required>
+        
+        <div id="modalError" class="error-message" style="display: none;"></div>
+        
+        <form method="POST" id="passwordForm" onsubmit="return validateAndSubmit()">
+            <div class="form-group">
+                <label><i class="fas fa-key"></i> Current Password</label>
+                <input type="password" name="current_password" id="current_password" 
+                       placeholder="Enter your current password" required>
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-plus-circle"></i> New Password</label>
+                <input type="password" name="new_password" id="new_password" 
+                       placeholder="Enter new password (min. 6 characters)" 
+                       onkeyup="validatePassword()" required>
+                <div class="password-strength" id="strengthText"></div>
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-check-circle"></i> Confirm New Password</label>
+                <input type="password" name="confirm_password" id="confirm_password" 
+                       placeholder="Re-enter new password" 
+                       onkeyup="validatePassword()" required>
+            </div>
+            
+            <!-- Password Requirements Box -->
+<div class="requirement-list">
+    <strong><i class="fas fa-info-circle"></i> Password Requirements:</strong>
+    <ul>
+        <li id="req-length"><i class="fas fa-circle" style="font-size: 8px;"></i> At least 6 characters</li>
+        <li id="req-match"><i class="fas fa-circle" style="font-size: 8px;"></i> Passwords match</li>
+    </ul>
+</div>
+            
             <div class="modal-buttons">
-                <button type="submit" name="change_password" class="modal-btn-confirm">Update Password</button>
-                <button type="button" class="modal-btn-cancel" onclick="closePasswordModal()">Cancel</button>
+                <button type="submit" name="change_password" id="submitBtn" class="modal-btn-confirm" disabled>
+                    <i class="fas fa-save"></i> Update Password
+                </button>
+                <button type="button" class="modal-btn-cancel" onclick="closePasswordModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
             </div>
         </form>
     </div>
 </div>
+
 
 <!-- Logout Confirmation Modal -->
 <div id="logoutModal" class="modal-overlay">
@@ -410,7 +605,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
         <h4>Confirm Logout</h4>
         <p>Are you sure you want to logout?</p>
         <div class="modal-buttons">
-            <button id="confirmLogout" class="modal-btn-confirm">Yes, Logout</button>
+            <button id="confirmLogout" class="modal-btn-logout">Yes, Logout</button>
             <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
         </div>
     </div>
@@ -419,25 +614,165 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
 <script>
     function showPasswordModal() {
         document.getElementById('passwordModal').style.display = 'flex';
+        // Clear form fields when opening
+        document.getElementById('current_password').value = '';
+        document.getElementById('new_password').value = '';
+        document.getElementById('confirm_password').value = '';
+        document.getElementById('modalError').style.display = 'none';
+        // Reset validation
+        validatePassword();
     }
+    
     function closePasswordModal() {
         document.getElementById('passwordModal').style.display = 'none';
     }
+    
+    function validatePassword() {
+    const newPass = document.getElementById('new_password').value;
+    const confirmPass = document.getElementById('confirm_password').value;
+    const submitBtn = document.getElementById('submitBtn');
+    const reqLength = document.getElementById('req-length');
+    const reqMatch = document.getElementById('req-match');
+    const strengthText = document.getElementById('strengthText');
+    
+    // Check length requirement
+    const isLengthValid = newPass.length >= 6;
+    
+    // Check if passwords match (only when confirm has value)
+    const isMatchValid = (confirmPass.length === 0) ? false : (newPass === confirmPass);
+    
+    // Update requirement list icons
+    if (isLengthValid) {
+        reqLength.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> At least 6 characters ✓';
+        reqLength.style.color = '#28a745';
+    } else {
+        reqLength.innerHTML = '<i class="fas fa-times-circle" style="color: #dc3545;"></i> At least 6 characters';
+        reqLength.style.color = '#dc3545';
+    }
+    
+    if (confirmPass.length > 0) {
+        if (isMatchValid) {
+            reqMatch.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> Passwords match ✓';
+            reqMatch.style.color = '#28a745';
+        } else {
+            reqMatch.innerHTML = '<i class="fas fa-times-circle" style="color: #dc3545;"></i> Passwords match';
+            reqMatch.style.color = '#dc3545';
+        }
+    } else {
+        reqMatch.innerHTML = '<i class="fas fa-circle" style="font-size: 8px;"></i> Passwords match';
+        reqMatch.style.color = '#666';
+    }
+    
+    // Show password strength
+    if (newPass.length === 0) {
+        strengthText.innerHTML = '';
+        strengthText.className = 'password-strength';
+    } else if (newPass.length < 6) {
+        strengthText.innerHTML = '⚠️ Password must be at least 6 characters';
+        strengthText.className = 'password-strength strength-weak';
+    } else if (newPass.length >= 6 && newPass.length < 10) {
+        strengthText.innerHTML = '🟡 Medium strength - Add more characters for stronger password';
+        strengthText.className = 'password-strength strength-medium';
+    } else {
+        strengthText.innerHTML = '✅ Strong password!';
+        strengthText.className = 'password-strength strength-strong';
+    }
+    
+    // Style confirm password field
+    const confirmField = document.getElementById('confirm_password');
+    if (confirmPass.length > 0) {
+        if (isMatchValid) {
+            confirmField.style.borderColor = '#28a745';
+        } else {
+            confirmField.style.borderColor = '#dc3545';
+        }
+    } else {
+        confirmField.style.borderColor = '#ddd';
+    }
+    
+    // Style new password field
+    const newPassField = document.getElementById('new_password');
+    if (newPass.length > 0) {
+        if (isLengthValid) {
+            newPassField.style.borderColor = '#28a745';
+        } else {
+            newPassField.style.borderColor = '#dc3545';
+        }
+    } else {
+        newPassField.style.borderColor = '#ddd';
+    }
+    
+    // Enable/disable submit button
+    if (isLengthValid && isMatchValid && newPass.length > 0 && confirmPass.length > 0) {
+        submitBtn.disabled = false;
+        submitBtn.style.background = '#28a745';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.style.opacity = '1';
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.style.background = '#ccc';
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.style.opacity = '0.7';
+    }
+    
+    return isLengthValid && isMatchValid;
+}
+    
+    function validateAndSubmit() {
+        const newPass = document.getElementById('new_password').value;
+        const confirmPass = document.getElementById('confirm_password').value;
+        const currentPass = document.getElementById('current_password').value;
+        const errorDiv = document.getElementById('modalError');
+        
+        // Check if current password is empty
+        if (currentPass === '') {
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please enter your current password.';
+            errorDiv.style.display = 'block';
+            return false;
+        }
+        
+        // Check length
+        if (newPass.length < 6) {
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> New password must be at least 6 characters.';
+            errorDiv.style.display = 'block';
+            return false;
+        }
+        
+        // Check if passwords match
+        if (newPass !== confirmPass) {
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> New passwords do not match.';
+            errorDiv.style.display = 'block';
+            return false;
+        }
+        
+        errorDiv.style.display = 'none';
+        return true;
+    }
+    
     function showLogoutConfirm() {
         document.getElementById('logoutModal').style.display = 'flex';
     }
+    
     document.getElementById('confirmLogout').onclick = function() {
         window.location.href = '../../logout.php';
     };
+    
     document.getElementById('cancelLogout').onclick = function() {
         document.getElementById('logoutModal').style.display = 'none';
     };
+    
+    // Close modal when clicking outside
     window.onclick = function(event) {
         const logoutModal = document.getElementById('logoutModal');
         const passwordModal = document.getElementById('passwordModal');
-        if (event.target == logoutModal) logoutModal.style.display = 'none';
-        if (event.target == passwordModal) passwordModal.style.display = 'none';
+        if (event.target == logoutModal) {
+            logoutModal.style.display = 'none';
+        }
+        if (event.target == passwordModal) {
+            closePasswordModal();
+        }
     };
 </script>
+
 </body>
 </html>

@@ -382,6 +382,35 @@ if ($club_id) {
             font-size: 11px;
             display: inline-block;
         }
+
+        
+
+.badge-ongoing {
+    background: #fff3cd;
+    color: #856404;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    display: inline-block;
+}
+
+.badge-completed {
+    background: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    display: inline-block;
+}
+
+.badge-cancelled {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    display: inline-block;
+}
         
         /* Buttons */
         .btn-sm-custom {
@@ -594,7 +623,7 @@ if ($club_id) {
                 <span class="badge-club"><?php echo htmlspecialchars($club_name); ?></span>
             <?php endif; ?>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <!-- Welcome Banner -->
@@ -653,53 +682,75 @@ if ($club_id) {
     </div>
 
     <!-- Upcoming Events -->
-    <div class="section-card">
-        <div class="section-title">
-            <i class="fas fa-calendar-alt"></i> Upcoming Events
-        </div>
-        <div class="section-content">
-            <?php if (empty($recentEvents)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-calendar-times"></i>
-                    <p>No upcoming events scheduled.</p>
-                    <a href="../module3/create_event.php" class="btn-edit btn-sm-custom"><i class="fas fa-plus"></i> Create Event</a>
-                </div>
-            <?php else: ?>
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Event</th>
-                                <th>Date</th>
-                                <th>Venue</th>
-                                <th>Registration</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recentEvents as $event): ?>
-                            <tr>
-                                <td><strong><?php echo htmlspecialchars($event['event_title']); ?></strong></td>
-                                <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
-                                <td><?php echo htmlspecialchars($event['venue']); ?></td>
-                                <td><?php echo $event['current_participant']; ?>/<?php echo $event['max_participant']; ?></td>
-                                <td><span class="badge-upcoming"><?php echo $event['status']; ?></span></td>
-                                <td>
-                                    <a href="../module3/edit_event.php?id=<?php echo $event['event_id']; ?>" class="btn-edit btn-sm-custom"><i class="fas fa-edit"></i> Edit</a>
-                                    <a href="../module4/attendance_management.php?event_id=<?php echo $event['event_id']; ?>" class="btn-qr btn-sm-custom"><i class="fas fa-qrcode"></i> QR</a>
-                            </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                            </table>
-                </div>
-                <div class="mt-3 text-end">
-                    <a href="../module3/manage_events.php" class="btn-link-custom">View All Events <i class="fas fa-arrow-right"></i></a>
-                </div>
-            <?php endif; ?>
-        </div>
+<div class="section-card">
+    <div class="section-title">
+        <i class="fas fa-calendar-alt"></i> Club Events
     </div>
+    <div class="section-content">
+        <?php if (empty($recentEvents)): ?>
+            <div class="empty-state">
+                <i class="fas fa-calendar-times"></i>
+                <p>No events found for your club.</p>
+                <a href="../module3/create_event.php" class="btn-edit btn-sm-custom"><i class="fas fa-plus"></i> Create Event</a>
+            </div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Venue</th>
+                            <th>Registration</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recentEvents as $event): 
+                            // Calculate dynamic status based on date
+                            $today = date('Y-m-d');
+                            $event_date = $event['event_date'];
+                            
+                            if ($event['status'] == 'CANCELLED') {
+                                $display_status = 'CANCELLED';
+                                $status_class = 'cancelled';
+                            } elseif ($event_date < $today) {
+                                $display_status = 'COMPLETED';
+                                $status_class = 'completed';
+                            } elseif ($event_date == $today) {
+                                $display_status = 'ONGOING';
+                                $status_class = 'ongoing';
+                            } else {
+                                $display_status = $event['status']; // UPCOMING
+                                $status_class = 'upcoming';
+                            }
+                        ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($event['event_title']); ?></strong></td>
+                            <td><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
+                            <td><?php echo htmlspecialchars($event['venue']); ?></td>
+                            <td><?php echo $event['current_participant']; ?>/<?php echo $event['max_participant']; ?></td>
+                            <td>
+                                <span class="badge-<?php echo $status_class; ?>">
+                                    <?php echo $display_status; ?>
+                                </span>
+                            </td>
+                            <td>
+                                <a href="../module3/edit_event.php?id=<?php echo $event['event_id']; ?>" class="btn-edit btn-sm-custom"><i class="fas fa-edit"></i> Edit</a>
+                                <a href="../module4/attendance_management.php?event_id=<?php echo $event['event_id']; ?>" class="btn-qr btn-sm-custom"><i class="fas fa-qrcode"></i> QR</a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3 text-end">
+                <a href="../module3/manage_events.php" class="btn-link-custom">View All Events <i class="fas fa-arrow-right"></i></a>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
 
     <!-- Pending Applications -->
     <div class="section-card">
@@ -831,6 +882,8 @@ if ($club_id) {
         </div>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
 
 <script>
     let currentApplicationId = null;

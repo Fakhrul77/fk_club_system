@@ -119,7 +119,7 @@ if ($selected_event) {
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
             <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : 'Committee'; ?></span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="table-card">
@@ -178,5 +178,8 @@ if ($selected_event) {
         <?php endif; ?>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
+
 </body>
 </html>

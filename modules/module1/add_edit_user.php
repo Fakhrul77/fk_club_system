@@ -104,14 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if ($check->fetch()) {
                     $error = "Email already exists!";
                 } else {
-                    $temp_password = 'password123';
-                    $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
-                    
-                    $stmt = $pdo->prepare("
-                        INSERT INTO users (studentId, name, email, phone, programme, yearsOfStud, role_id, status, passwordHash, emailVerified, createdAt)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
-                    ");
-                    $stmt->execute([$id_value, $name, $email, $phone, $programme, $year, $role_id, $status, $hashed_password]);
+                   $temp_password = 'password123';  // plain text
+
+$stmt = $pdo->prepare("
+    INSERT INTO users (studentId, name, email, phone, programme, yearsOfStud, role_id, status, passwordHash, emailVerified, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+");
+$stmt->execute([$id_value, $name, $email, $phone, $programme, $year, $role_id, $status, $temp_password]);
                     
                     $new_user_id = $pdo->lastInsertId();
                     
@@ -313,7 +312,7 @@ if ($user_data) {
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?>
             <span class="badge-role">Administrator</span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="form-card">
@@ -448,6 +447,8 @@ if ($user_data) {
         <?php endif; ?>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
 
 <script>
     function toggleFields() {

@@ -195,6 +195,8 @@ $fillRate = $totalCap > 0 ? round(($totalFilled / $totalCap) * 100, 1) : 0;
         .stat-icon { width: 50px; height: 50px; background: rgba(0,59,92,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
         .stat-icon i { font-size: 28px; color: var(--umpsa-blue); }
         
+
+        
         .chart-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .chart-card h5 { color: var(--umpsa-blue); margin-bottom: 20px; font-weight: 600; }
         .chart-card h5 i { color: var(--umpsa-gold); margin-right: 8px; }

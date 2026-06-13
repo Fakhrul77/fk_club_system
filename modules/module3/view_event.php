@@ -344,7 +344,7 @@ $status_class = match($event['status']) {
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
             <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : ($user_role == 2 ? 'Committee' : 'Student'); ?></span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <!-- Back Button -->
@@ -353,6 +353,21 @@ $status_class = match($event['status']) {
               <i class="fas fa-arrow-left"></i> Back
          </a>
     </div>
+
+    <?php 
+// Get waiting list counts
+$waiting_count = $pdo->prepare("SELECT COUNT(*) FROM waiting_list WHERE event_id = ?");
+$waiting_count->execute([$event_id]);
+$waiting_list_count = $waiting_count->fetchColumn();
+?>
+
+<?php if ($waiting_list_count > 0): ?>
+    <div class="alert alert-info mt-2">
+        <i class="fas fa-hourglass-half"></i> 
+        <?php echo $waiting_list_count; ?> student(s) on waiting list. 
+        They will be automatically promoted when spots become available.
+    </div>
+<?php endif; ?>
 
     <!-- Event Header -->
     <div class="event-header">
@@ -494,6 +509,8 @@ $status_class = match($event['status']) {
         </div>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
 
 <script>
     // Search functionality

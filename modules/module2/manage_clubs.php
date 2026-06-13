@@ -13,4 +13,3 @@ elseif ($user_role == 2) header("Location: club_dashboard_committee.php");
 else header("Location: club_dashboard_student.php");
 exit();
 ?>
-dfd

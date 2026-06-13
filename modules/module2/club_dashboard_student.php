@@ -309,6 +309,205 @@ if (isset($_GET['msg'])) {
             margin-right: 10px;
         }
         
+        /* Application Status Card */
+.application-status-card {
+    background: white;
+    border-radius: 20px;
+    padding: 0;
+    margin-bottom: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    width: 100%;  /* ← ADD THIS */
+    max-width: 100%;  /* ← ADD THIS */
+}
+
+.application-status-header {
+    background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
+    color: white;
+    padding: 18px 25px;
+}
+
+.application-status-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.application-status-header h4 i {
+    margin-right: 10px;
+    color: var(--umpsa-gold);
+}
+
+.application-status-body {
+    padding: 25px;
+}
+
+.application-club-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.application-club-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(0,59,92,0.1);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.application-club-icon i {
+    font-size: 30px;
+    color: var(--umpsa-blue);
+}
+
+.application-club-details h5 {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--umpsa-blue);
+}
+
+.application-club-details p {
+    margin: 0;
+    font-size: 13px;
+    color: #666;
+}
+
+.application-reason-box {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 15px 0;
+    border-left: 4px solid var(--umpsa-gold);
+}
+
+.application-reason-box p {
+    margin: 8px 0 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #444;
+}
+
+.application-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.btn-cancel-app {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-cancel-app:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+/* Status Badges */
+.status-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff3cd;
+    color: #856404;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-approved-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #d4edda;
+    color: #155724;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-rejected-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8d7da;
+    color: #721c24;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Club Cards - Improved */
+.club-card {
+    background: white;
+    border-radius: 20px;
+    padding: 0;
+    margin-bottom: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.club-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.club-card-header {
+    background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
+    color: white;
+    padding: 20px;
+}
+
+.club-card-header h4 {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.club-card-header p {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.club-card-body {
+    padding: 20px;
+    flex: 1;
+}
+
+.club-card-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    background: #fafbfc;
+}
         /* My Club Header */
         .my-club-header {
             background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
@@ -352,6 +551,61 @@ if (isset($_GET['msg'])) {
             border-color: #dc3545;
             color: white;
         }
+
+        .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    width: 380px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+.modal-btn-logout {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.modal-btn-logout:hover {
+    background: #c82333;
+}
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.modal-btn-cancel:hover {
+    background: #5a6268;
+}
         
         /* Info Cards */
         .info-card {
@@ -396,41 +650,7 @@ if (isset($_GET['msg'])) {
             color: #666;
         }
         
-        /* Club Cards */
-        .club-card {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            transition: all 0.3s;
-            height: 100%;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-        .club-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-        .club-name {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--umpsa-blue);
-            margin-bottom: 8px;
-        }
-        .club-meta {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 12px;
-        }
-        .club-meta i {
-            margin-right: 5px;
-        }
-        .club-description {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 15px;
-        }
+        
         .btn-apply {
             background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
             color: white;
@@ -572,7 +792,7 @@ if (isset($_GET['msg'])) {
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>
             <span class="badge-role">Student</span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <h2 class="page-title"><i class="fas fa-building"></i> Club Management</h2>
@@ -671,59 +891,94 @@ if (isset($_GET['msg'])) {
         </div>
 
     <!-- ========== IF STUDENT HAS PENDING APPLICATION ========== -->
-    <?php elseif ($pendingApplication): ?>
-        <div class="info-box info-box-warning">
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
-                <div>
-                    <h5><i class="fas fa-hourglass-half"></i> Pending Application</h5>
-                    <p class="mb-1">You have applied to join <strong><?php echo htmlspecialchars($pendingApplication['clubName']); ?></strong></p>
-                    <p class="mb-1"><small><i class="fas fa-tag"></i> <?php echo htmlspecialchars($pendingApplication['clubCategory'] ?? 'General'); ?></small></p>
-                    <p class="mb-2"><small><i class="fas fa-calendar"></i> Applied: <?php echo date('d M Y', strtotime($pendingApplication['application_date'])); ?></small></p>
-                    <?php if ($pendingApplication['reason']): ?>
-                        <div class="mt-2 p-2 bg-white rounded" style="font-size: 13px;">
-                            <strong>Your reason:</strong><br><?php echo nl2br(htmlspecialchars($pendingApplication['reason'])); ?>
-                        </div>
-                    <?php endif; ?>
-                    <p class="small text-muted mt-3 mb-0"><i class="fas fa-clock"></i> Please wait for committee approval. You cannot apply to other clubs while pending.</p>
+<?php elseif ($pendingApplication): ?>
+    <div class="application-status-card">
+        <div class="application-status-header">
+            <h4><i class="fas fa-hourglass-half"></i> Application Pending Review</h4>
+        </div>
+        <div class="application-status-body">
+            <div class="application-club-info">
+                <div class="application-club-icon">
+                    <i class="fas fa-building"></i>
                 </div>
-                <div class="mt-3 mt-md-0">
-                    <button type="button" class="btn btn-danger" onclick="openCancelApplicationModal()">
-                        <i class="fas fa-times"></i> Cancel Application
-                    </button>
+                <div class="application-club-details">
+                    <h5><?php echo htmlspecialchars($pendingApplication['clubName']); ?></h5>
+                    <p><i class="fas fa-tag"></i> <?php echo htmlspecialchars($pendingApplication['clubCategory'] ?? 'General'); ?> Club</p>
+                </div>
+                <div class="ms-auto">
+                    <span class="status-pending-badge">
+                        <i class="fas fa-clock"></i> Pending
+                    </span>
                 </div>
             </div>
+            
+            <div class="application-reason-box">
+                <strong><i class="fas fa-question-circle"></i> Your application reason:</strong>
+                <p><?php echo nl2br(htmlspecialchars($pendingApplication['reason'] ?? 'No reason provided.')); ?></p>
+            </div>
+            
+            <?php if (!empty($pendingApplication['motivation'])): ?>
+            <div class="application-reason-box">
+                <strong><i class="fas fa-heart"></i> Your motivation:</strong>
+                <p><?php echo nl2br(htmlspecialchars($pendingApplication['motivation'])); ?></p>
+            </div>
+            <?php endif; ?>
+            
+            <div class="application-actions">
+                <button type="button" class="btn-cancel-app" onclick="openCancelApplicationModal()">
+                    <i class="fas fa-times"></i> Cancel Application
+                </button>
+                <small class="text-muted ms-auto" style="align-self: center;">
+                    <i class="fas fa-calendar"></i> Applied: <?php echo date('d M Y', strtotime($pendingApplication['application_date'])); ?>
+                </small>
+            </div>
         </div>
+    </div>
 
     <!-- ========== IF STUDENT HAS REJECTED APPLICATION ========== -->
-    <?php elseif ($rejectedApplication): ?>
-        <div class="info-box info-box-danger">
-            <div class="d-flex justify-content-between align-items-start flex-wrap">
-                <div class="flex-grow-1">
-                    <h5><i class="fas fa-times-circle"></i> Application Rejected</h5>
-                    <p class="mb-1">Your application to join <strong><?php echo htmlspecialchars($rejectedApplication['clubName']); ?></strong> was not approved.</p>
-                    
-                    <div class="mt-3 p-3 bg-white rounded" style="border-left: 3px solid #dc3545;">
-                        <strong><i class="fas fa-info-circle"></i> Reason for rejection:</strong><br>
-                        <?php echo nl2br(htmlspecialchars($rejectedApplication['rejection_reason'] ?? 'No specific reason provided.')); ?>
-                    </div>
-                    
-                    <?php if ($rejectedApplication['committee_remarks']): ?>
-                        <div class="mt-2 p-2 bg-white rounded" style="font-size: 13px;">
-                            <i class="fas fa-comment"></i> <strong>Committee notes:</strong> <?php echo nl2br(htmlspecialchars($rejectedApplication['committee_remarks'])); ?>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <p class="small text-muted mt-3 mb-0">
-                        <i class="fas fa-lightbulb"></i> Tip: You can now apply to other clubs. Learn from this feedback and try again!
-                    </p>
+<?php elseif ($rejectedApplication): ?>
+    <div class="application-status-card">
+        <div class="application-status-header" style="background: linear-gradient(135deg, #dc3545, #b02a37);">
+            <h4><i class="fas fa-times-circle"></i> Application Not Approved</h4>
+        </div>
+        <div class="application-status-body">
+            <div class="application-club-info">
+                <div class="application-club-icon">
+                    <i class="fas fa-building"></i>
                 </div>
-                <div class="mt-3 mt-md-0 ms-3">
-                    <a href="?clear_rejected=1" class="btn btn-outline-danger btn-sm">
-                        <i class="fas fa-times"></i> Dismiss
-                    </a>
+                <div class="application-club-details">
+                    <h5><?php echo htmlspecialchars($rejectedApplication['clubName']); ?></h5>
+                    <p><i class="fas fa-tag"></i> <?php echo htmlspecialchars($rejectedApplication['clubCategory'] ?? 'General'); ?> Club</p>
+                </div>
+                <div class="ms-auto">
+                    <span class="status-rejected-badge">
+                        <i class="fas fa-times-circle"></i> Rejected
+                    </span>
                 </div>
             </div>
+            
+            <div class="application-reason-box" style="border-left-color: #dc3545;">
+                <strong><i class="fas fa-info-circle"></i> Reason for rejection:</strong>
+                <p><?php echo nl2br(htmlspecialchars($rejectedApplication['rejection_reason'] ?? 'No specific reason provided.')); ?></p>
+            </div>
+            
+            <?php if ($rejectedApplication['committee_remarks']): ?>
+            <div class="application-reason-box">
+                <strong><i class="fas fa-comment"></i> Committee notes:</strong>
+                <p><?php echo nl2br(htmlspecialchars($rejectedApplication['committee_remarks'])); ?></p>
+            </div>
+            <?php endif; ?>
+            
+            <div class="application-actions">
+                <a href="?clear_rejected=1" class="btn-cancel-app" style="background: #6c757d;">
+                    <i class="fas fa-trash"></i> Dismiss & Try Other Clubs
+                </a>
+                <small class="text-muted ms-auto" style="align-self: center;">
+                    <i class="fas fa-calendar"></i> Reviewed: <?php echo date('d M Y', strtotime($rejectedApplication['reviewed_date'] ?? 'now')); ?>
+                </small>
+            </div>
         </div>
+    </div>
 
     <!-- ========== IF STUDENT HAS NO CLUB AND NO PENDING APPLICATION ========== -->
     <?php else: ?>
@@ -732,33 +987,37 @@ if (isset($_GET['msg'])) {
         </div>
 
         <h4 class="mb-3 mt-3"><i class="fas fa-search"></i> Available Clubs</h4>
-        <div class="row">
-            <?php foreach ($clubsList as $club): ?>
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="club-card">
-                        <div class="club-name"><?php echo htmlspecialchars($club['clubName']); ?></div>
-                        <div class="club-meta">
-                            <i class="fas fa-tag"></i> <?php echo htmlspecialchars($club['clubCategory'] ?? 'General'); ?>
-                            &nbsp;|&nbsp;
-                            <i class="fas fa-users"></i> <?php echo $club['member_count']; ?> members
-                        </div>
-                        <div class="club-description">
-                            <?php echo htmlspecialchars(substr($club['clubDescription'] ?? '', 0, 100)); ?>...
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn-apply" onclick="showApplicationForm(<?php echo $club['club_id']; ?>, '<?php echo htmlspecialchars($club['clubName']); ?>')">
-                                <i class="fas fa-hand-paper"></i> Apply to Join
-                            </button>
-                            <a href="club_view.php?id=<?php echo $club['club_id']; ?>" class="btn-details">
-                                <i class="fas fa-eye"></i> Details
-                            </a>
-                        </div>
-                    </div>
+        <!-- Available Clubs -->
+<div class="row">
+    <?php foreach ($clubsList as $club): ?>
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="club-card">
+                <div class="club-card-header">
+                    <h4><?php echo htmlspecialchars($club['clubName']); ?></h4>
+                    <p><i class="fas fa-tag"></i> <?php echo htmlspecialchars($club['clubCategory'] ?? 'General'); ?></p>
                 </div>
-            <?php endforeach; ?>
+                <div class="club-card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <small><i class="fas fa-users"></i> <?php echo $club['member_count']; ?> members</small>
+                        <small><i class="fas fa-calendar"></i> <?php echo $club['upcoming_events']; ?> upcoming events</small>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        <?php echo htmlspecialchars(substr($club['clubDescription'] ?? 'No description available.', 0, 100)); ?>...
+                    </p>
+                </div>
+                <div class="club-card-footer">
+                    <button class="btn-apply" onclick="showApplicationForm(<?php echo $club['club_id']; ?>, '<?php echo htmlspecialchars($club['clubName']); ?>')">
+                        <i class="fas fa-hand-paper"></i> Apply to Join
+                    </button>
+                    <a href="club_view.php?id=<?php echo $club['club_id']; ?>" class="btn-details">
+                        <i class="fas fa-eye"></i> Details
+                    </a>
+                </div>
+            </div>
         </div>
-    <?php endif; ?>
+    <?php endforeach; ?>
 </div>
+<?php endif; ?>
 
 <!-- Application Modal -->
 <div class="modal fade application-modal" id="applicationModal" tabindex="-1">
@@ -858,6 +1117,19 @@ if (isset($_GET['msg'])) {
     </div>
 </div>
 
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
+        <h4>Confirm Logout</h4>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+            <button id="confirmLogout" class="modal-btn-logout">Yes, Logout</button>
+            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     function showApplicationForm(clubId, clubName) {
@@ -876,6 +1148,24 @@ if (isset($_GET['msg'])) {
         document.getElementById('confirmLeaveBtn').href = '?leave=1';
         new bootstrap.Modal(document.getElementById('leaveClubModal')).show();
     }
+
+    function showLogoutConfirm() {
+    document.getElementById('logoutModal').style.display = 'flex';
+}
+function closeLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'none';
+}
+document.getElementById('confirmLogout').onclick = function() {
+    window.location.href = '../../logout.php';
+};
+document.getElementById('cancelLogout').onclick = function() {
+    closeLogoutModal();
+};
+window.onclick = function(event) {
+    if (event.target == document.getElementById('logoutModal')) {
+        closeLogoutModal();
+    }
+};
 </script>
 
 </body>

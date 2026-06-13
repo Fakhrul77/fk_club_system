@@ -61,8 +61,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_event_id'])) {
 if (isset($_GET['status']) && isset($_GET['event_id'])) {
     $status = $_GET['status'];
     $event_id = (int)$_GET['event_id'];
+    
+    // Get current event details before update
+    $stmt = $pdo->prepare("SELECT current_participant, max_participant FROM event WHERE event_id = ?");
+    $stmt->execute([$event_id]);
+    $event = $stmt->fetch();
+    
+    // Update status
     $stmt = $pdo->prepare("UPDATE event SET status = ? WHERE event_id = ?");
     $stmt->execute([$status, $event_id]);
+    
+    // ========== ADD WAITING LIST PROMOTION HERE ==========
+// If status is UPCOMING or ONGOING, check waiting list
+if ($status == 'UPCOMING' || $status == 'ONGOING') {
+    $available_spots = $event['max_participant'] - $event['current_participant'];
+    
+    if ($available_spots > 0) {
+        $limit = (int)$available_spots;  // ← FIX: Cast to int and use directly
+        $waiting_stmt = $pdo->prepare("
+            SELECT waiting_id, user_id FROM waiting_list 
+            WHERE event_id = ? 
+            ORDER BY position ASC 
+            LIMIT $limit
+        ");
+        $waiting_stmt->execute([$event_id]);  // ← FIX: Remove second parameter
+        $waiting_users = $waiting_stmt->fetchAll();
+            
+            foreach ($waiting_users as $waiting_user) {
+                $pdo->prepare("DELETE FROM waiting_list WHERE waiting_id = ?")->execute([$waiting_user['waiting_id']]);
+                $pdo->prepare("
+                    INSERT INTO event_registration (user_id, event_id, registration_date, status) 
+                    VALUES (?, ?, NOW(), 'Confirmed')
+                ")->execute([$waiting_user['user_id'], $event_id]);
+                $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")->execute([$event_id]);
+            }
+        }
+    }
+    // ========== END OF ADDED CODE ==========
+    
     header("Location: manage_events.php");
     exit();
 }
@@ -161,6 +197,13 @@ $events = $stmt->fetchAll();
     color: var(--umpsa-dark-blue);
 }
 
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+}
 /* Delete Modal */
 .modal-overlay {
     display: none;
@@ -321,7 +364,7 @@ $events = $stmt->fetchAll();
             <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'User'); ?>
             <span class="badge-role"><?php echo $user_role == 1 ? 'Administrator' : 'Committee'; ?></span>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="table-card">
@@ -330,8 +373,25 @@ $events = $stmt->fetchAll();
             <a href="create_event.php" class="btn-add"><i class="fas fa-plus"></i> Create New Event</a>
         </div>
 
+<!-- Add search and filter -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <input type="text" id="searchEvent" class="form-control" 
+               placeholder="🔍 Search by event name or club...">
+    </div>
+    <div class="col-md-3">
+        <select id="statusFilter" class="form-select">
+            <option value="all">All Status</option>
+            <option value="UPCOMING">Upcoming</option>
+            <option value="ONGOING">Ongoing</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+        </select>
+    </div>
+</div>
+
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover" id="eventsTable">
                 <thead>
                     <tr>
                         <th>ID</th><th>Event Title</th><th>Club</th><th>Date</th><th>Venue</th>
@@ -339,49 +399,51 @@ $events = $stmt->fetchAll();
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($events as $event): 
-    // Calculate dynamic status based on date
-    $today = date('Y-m-d');
-    $event_date = $event['event_date'];
-    
-    if ($event['status'] == 'CANCELLED') {
-        $display_status = 'CANCELLED';
-        $status_class = 'cancelled';
-    } elseif ($event_date < $today) {
-        $display_status = 'COMPLETED';
-        $status_class = 'completed';
-    } elseif ($event_date == $today) {
-        $display_status = 'ONGOING';
-        $status_class = 'ongoing';
-    } else {
-        $display_status = $event['status']; // UPCOMING
-        $status_class = 'upcoming';
-    }
-?>
-<tr>
-    <td><?php echo $event['event_id']; ?></td>
-    <td><?php echo htmlspecialchars($event['event_title']); ?></td>
-    <td><?php echo htmlspecialchars($event['clubName']); ?></td>
-    <td><?php echo date('d M Y', strtotime($event['event_date'])); ?> <?php echo date('h:i A', strtotime($event['event_time'])); ?></td>
-    <td><?php echo htmlspecialchars($event['venue']); ?></td>
-    <td><?php echo $event['max_participant']; ?></td>
-    <td><?php echo $event['current_participant']; ?></td>
-    <td>
-        <span class="status-<?php echo $status_class; ?>">
-            <?php echo $display_status; ?>
-        </span>
-    </td>
-    <td>
-        <a href="edit_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="Edit"><i class="fas fa-edit"></i></a>
-        <a href="view_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="View"><i class="fas fa-eye"></i></a>
-        <button class="action-btn" onclick="changeStatus(<?php echo $event['event_id']; ?>)" title="Change Status"><i class="fas fa-sync-alt"></i></button>
-        <button class="action-btn" type="button" onclick="openDeleteModal(<?php echo $event['event_id']; ?>)">
-            <i class="fas fa-trash-alt" style="color:#dc3545;"></i>
-        </button>
-    </td>
-</tr>
-<?php endforeach; ?>
-                </tbody>
+    <?php foreach ($events as $event): 
+        // Calculate dynamic status based on date
+        $today = date('Y-m-d');
+        $event_date = $event['event_date'];
+        
+        if ($event['status'] == 'CANCELLED') {
+            $display_status = 'CANCELLED';
+            $status_class = 'cancelled';
+        } elseif ($event_date < $today) {
+            $display_status = 'COMPLETED';
+            $status_class = 'completed';
+        } elseif ($event_date == $today) {
+            $display_status = 'ONGOING';
+            $status_class = 'ongoing';
+        } else {
+            $display_status = $event['status']; // UPCOMING
+            $status_class = 'upcoming';
+        }
+    ?>
+    <tr data-event-title="<?php echo strtolower(htmlspecialchars($event['event_title'])); ?>" 
+        data-club-name="<?php echo strtolower(htmlspecialchars($event['clubName'])); ?>"
+        data-status="<?php echo $display_status; ?>">
+        <td><?php echo $event['event_id']; ?></td>
+        <td><?php echo htmlspecialchars($event['event_title']); ?></td>
+        <td><?php echo htmlspecialchars($event['clubName']); ?></td>
+        <td><?php echo date('d M Y', strtotime($event['event_date'])); ?> <?php echo date('h:i A', strtotime($event['event_time'])); ?></td>
+        <td><?php echo htmlspecialchars($event['venue']); ?></td>
+        <td><?php echo $event['max_participant']; ?></td>
+        <td><?php echo $event['current_participant']; ?></td>
+        <td>
+            <span class="status-<?php echo $status_class; ?> status-badge">
+                <?php echo $display_status; ?>
+            </span>
+        </td>
+        <td>
+            <a href="edit_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="Edit"><i class="fas fa-edit"></i></a>
+            <a href="view_event.php?id=<?php echo $event['event_id']; ?>" class="action-btn" title="View"><i class="fas fa-eye"></i></a>
+            <button class="action-btn" onclick="changeStatus(<?php echo $event['event_id']; ?>)" title="Change Status"><i class="fas fa-sync-alt"></i></button>
+            <button class="action-btn" type="button" onclick="openDeleteModal(<?php echo $event['event_id']; ?>)">
+                <i class="fas fa-trash-alt" style="color:#dc3545;"></i>
+            </button>
+        </td>
+    </tr>
+    <?php endforeach; ?>
+</tbody>
             </table>
         </div>
     </div>
@@ -430,37 +492,35 @@ $events = $stmt->fetchAll();
     </div>
 </div>
 
+<?php include_once '../../includes/logout_modal.php'; ?>
+
 <script>
+// ========== STATUS MODAL FUNCTIONS ==========
 let selectedStatusEventId = null;
 
-// OPEN STATUS MODAL
 function changeStatus(id) {
     selectedStatusEventId = id;
     document.getElementById('statusModal').style.display = 'flex';
 }
 
-// CLOSE STATUS MODAL
 function closeStatusModal() {
     document.getElementById('statusModal').style.display = 'none';
     selectedStatusEventId = null;
     document.getElementById('statusSelect').value = "";
 }
 
-// CONFIRM STATUS UPDATE
 function confirmStatusChange() {
     let status = document.getElementById('statusSelect').value;
-
     if (!status) {
         alert("Please select a status");
         return;
     }
-
     document.getElementById('status_event_id').value = selectedStatusEventId;
     document.getElementById('status_value').value = status;
-
     document.getElementById('statusForm').submit();
 }
 
+// ========== DELETE MODAL FUNCTIONS ==========
 let selectedEventId = null;
 
 function openDeleteModal(id) {
@@ -468,20 +528,105 @@ function openDeleteModal(id) {
     document.getElementById('deleteModal').style.display = 'flex';
 }
 
-
 function closeDeleteModal() {
     document.getElementById('deleteModal').style.display = 'none';
     selectedEventId = null;
 }
 
-
 function confirmDelete() {
     if (!selectedEventId) return;
-
     document.getElementById('delete_event_id').value = selectedEventId;
     document.getElementById('deleteModal').style.display = 'none';
     document.getElementById('deleteEventForm').submit();
 }
+
+// ========== SEARCH AND FILTER FUNCTIONALITY ==========
+function filterEvents() {
+    let searchTerm = document.getElementById('searchEvent').value.toLowerCase();
+    let statusFilter = document.getElementById('statusFilter').value;
+    let rows = document.querySelectorAll('#eventsTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        // Get data from attributes (more reliable than innerText)
+        let eventTitle = row.getAttribute('data-event-title') || '';
+        let clubName = row.getAttribute('data-club-name') || '';
+        let status = row.getAttribute('data-status') || '';
+        
+        let matchesSearch = searchTerm === '' || 
+                           eventTitle.includes(searchTerm) || 
+                           clubName.includes(searchTerm);
+        let matchesStatus = statusFilter === 'all' || status === statusFilter;
+        
+        if (matchesSearch && matchesStatus) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Optional: Show/hide "no results" message
+    let noResultsRow = document.getElementById('noResultsRow');
+    if (visibleCount === 0 && rows.length > 0) {
+        if (!noResultsRow) {
+            let tbody = document.querySelector('#eventsTable tbody');
+            let msgRow = document.createElement('tr');
+            msgRow.id = 'noResultsRow';
+            let colspan = document.querySelector('#eventsTable thead tr').cells.length;
+            msgRow.innerHTML = `<td colspan="${colspan}" class="text-center text-muted py-4">
+                                    <i class="fas fa-search fa-2x mb-2 d-block"></i>
+                                    <strong>No events found</strong><br>
+                                    <small>Try a different search term or clear filters</small>
+                                 </td>`;
+            tbody.appendChild(msgRow);
+        }
+    } else if (noResultsRow) {
+        noResultsRow.remove();
+    }
+}
+
+// Clear filters function
+function clearFilters() {
+    document.getElementById('searchEvent').value = '';
+    document.getElementById('statusFilter').value = 'all';
+    filterEvents();
+}
+
+// Attach event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchEvent');
+    const statusSelect = document.getElementById('statusFilter');
+    
+    if (searchInput) {
+        searchInput.addEventListener('keyup', filterEvents);
+    }
+    if (statusSelect) {
+        statusSelect.addEventListener('change', filterEvents);
+    }
+    
+    // Add clear button if needed
+    if (!document.getElementById('clearFiltersBtn')) {
+        const filterRow = document.querySelector('.row.mb-3');
+        if (filterRow) {
+            const clearCol = document.createElement('div');
+            clearCol.className = 'col-md-2';
+            clearCol.innerHTML = '<button id="clearFiltersBtn" class="btn btn-outline-secondary w-100"><i class="fas fa-times"></i> Clear</button>';
+            filterRow.appendChild(clearCol);
+            
+            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+        }
+    }
+});
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const deleteModal = document.getElementById('deleteModal');
+    const statusModal = document.getElementById('statusModal');
+    if (event.target == deleteModal) closeDeleteModal();
+    if (event.target == statusModal) closeStatusModal();
+};
 </script>
+
 </body>
 </html>

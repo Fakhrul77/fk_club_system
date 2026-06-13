@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $user = $stmt->fetch();
     
     if ($user) {
-        if ($password_input == 'password123') {
+        // DIRECT PLAIN TEXT COMPARISON
+        if ($password_input == $user['passwordHash']) {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_role'] = $user['role_id'];
@@ -185,7 +186,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 <body>
     <div class="login-card">
-        <!-- Logo Section -->
         <div class="logo-container">
             <img src="../../assets/images/logo.png" alt="FK Logo" class="logo">
             <h2>FK Club System</h2>
@@ -218,7 +218,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <strong>📋 Demo Credentials:</strong><br>
             👑 Admin: admin@fk.umpsa.edu.my / password123<br>
             📋 Committee: sarah@student.umpsa.edu.my / password123<br>
-            🎓 Student: ahmad@student.umpsa.edu.my / password123
+            🎓 Student: ahmad@student.umpsa.edu.my / password123<br>
+            <small class="text-muted">Password for ALL accounts: password123</small>
         </div>
     </div>
 </body>

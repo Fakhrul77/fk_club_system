@@ -18,7 +18,7 @@ $student = $stmt->fetch();
 $eventTitleCol = 'event_title';
 $eventDateCol = 'event_date';
 
-// Get all attended events (including Late, Excused) for history display
+// Attended events (Present only) joined with points
 $sql = "SELECT a.*, e.`$eventTitleCol` AS eventTitle, e.`$eventDateCol` AS eventDate,"
      . " c.clubName, COALESCE(ap.pointsEarned, 0) AS pointsEarned"
      . " FROM attendance a"
@@ -26,7 +26,7 @@ $sql = "SELECT a.*, e.`$eventTitleCol` AS eventTitle, e.`$eventDateCol` AS event
      . " JOIN event e ON a.event_id = e.event_id"
      . " JOIN club c ON e.club_id = c.club_id"
      . " LEFT JOIN activity_points ap ON ap.user_id = er.user_id AND ap.event_id = a.event_id"
-     . " WHERE er.user_id = ?"
+     . " WHERE er.user_id = ? AND a.attendanceStatus = 'Present'"
      . " ORDER BY e.`$eventDateCol` ASC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$user_id]);
@@ -53,11 +53,12 @@ foreach ($levels as $l) {
     if ($l['min'] > $total_points) { $next_level = $l; break; }
 }
 
+// FIXED: Prevent division by zero
 $progress_pct = 0;
-if ($next_level) {
+if ($next_level && $next_level['min'] > 0) {
     $progress_pct = min(100, round(($total_points / $next_level['min']) * 100));
 } else {
-    $progress_pct = 100;
+    $progress_pct = 100; // Already at max level
 }
 
 // Projected from upcoming registrations
@@ -135,6 +136,7 @@ $page_title = "My Points & Recognition";
     margin: 10px 0 0 0;
     font-size: 18px;
 }
+
 
 .sidebar-header p {
     margin: 5px 0 0 0;

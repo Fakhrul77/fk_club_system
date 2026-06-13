@@ -169,7 +169,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <div class="main-content">
     <div class="top-nav">
         <div class="welcome-text"><i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?><span class="badge-role">Administrator</span></div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
     <div class="form-container">
@@ -188,6 +188,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </form>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

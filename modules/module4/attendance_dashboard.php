@@ -288,6 +288,8 @@ foreach ($event_groups_slice as $label => $counts) {
 
 .modal-btn-confirm:hover { background: #c82333; }
 
+
+
 .modal-btn-cancel {
     background: #6c757d;
     color: white;
@@ -299,6 +301,9 @@ foreach ($event_groups_slice as $label => $counts) {
 
 .modal-btn-cancel:hover { background: #5a6268; }
 
+.bg-info {
+    background-color: #17a2b8 !important;
+}
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav {
@@ -607,9 +612,25 @@ foreach ($event_groups_slice as $label => $counts) {
                         </thead>
                         <tbody>
                             <?php foreach ($attendance_records as $i => $record):
-                                if ($record['attendanceStatus'] == 'Present') $sc = 'success';
-                                elseif ($record['attendanceStatus'] == 'Absent') $sc = 'danger';
-                                else $sc = 'warning';
+                               if ($record['attendanceStatus'] == 'Present') {
+    $sc = 'success';
+    $icon = 'fa-check-circle';
+} elseif ($record['attendanceStatus'] == 'Late') {
+    $sc = 'warning';
+    $icon = 'fa-clock';
+} elseif ($record['attendanceStatus'] == 'Volunteer') {
+    $sc = 'info';
+    $icon = 'fa-hands-helping';
+} elseif ($record['attendanceStatus'] == 'Absent') {
+    $sc = 'danger';
+    $icon = 'fa-times-circle';
+} elseif ($record['attendanceStatus'] == 'Excused') {
+    $sc = 'secondary';
+    $icon = 'fa-check';
+} else {
+    $sc = 'secondary';
+    $icon = 'fa-question-circle';
+}
                             ?>
                             <tr>
                                 <td><?php echo $i + 1; ?></td>
@@ -620,7 +641,12 @@ foreach ($event_groups_slice as $label => $counts) {
                                     <td><?php echo htmlspecialchars($record['name']); ?></td>
                                 <?php endif; ?>
                                 <td><?php echo htmlspecialchars($record['studentId']); ?></td>
-                                <td><span class="badge bg-<?php echo $sc; ?>"><?php echo $record['attendanceStatus']; ?></span></td>
+                                <td>
+    <span class="badge bg-<?php echo $sc; ?>">
+        <i class="fas <?php echo $icon; ?>"></i> 
+        <?php echo $record['attendanceStatus']; ?>
+    </span>
+</td>
                                 <td><?php echo $record['checkInTime'] ? date('H:i', strtotime($record['checkInTime'])) : '—'; ?></td>
                                 <?php if ($user_role != 3): ?>
                                 <td>

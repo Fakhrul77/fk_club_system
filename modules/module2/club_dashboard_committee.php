@@ -223,6 +223,62 @@ $current_page = basename($_SERVER['PHP_SELF']);
     background: var(--umpsa-gold);
     color: var(--umpsa-dark-blue);
 }
+
+/* Logout Modal Styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    width: 380px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+.modal-btn-logout {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.modal-btn-logout:hover {
+    background: #c82333;
+}
+.modal-btn-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.modal-btn-cancel:hover {
+    background: #5a6268;
+}
         .main-content { margin-left: 260px; padding: 20px; }
         
         .top-nav { background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
@@ -275,9 +331,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <a href="../module2/club_dashboard_committee.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'club_dashboard_committee.php') ? 'active' : ''; ?>">
             <i class="fas fa-building"></i> <span>My Club</span>
         </a>
+
         <a href="../module3/event_dashboard.php">
-    <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
-</a>
+           <i class="fas fa-chart-line"></i> <span>Event Dashboard</span>
+        </a>
+        
         <!-- 3. Manage Events -->
         <a href="../module3/manage_events.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'manage_events.php') ? 'active' : ''; ?>">
             <i class="fas fa-calendar-alt"></i> <span>Manage Events</span>
@@ -312,9 +370,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <span class="badge-role">Committee</span>
             <?php if ($club_id): ?><span class="badge-club"><?php echo htmlspecialchars($club_name); ?></span><?php endif; ?>
         </div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
-    </div>
-
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+</div>
     <h2 class="mb-4" style="color: var(--umpsa-blue);"><i class="fas fa-tachometer-alt"></i> <?php echo htmlspecialchars($club_name); ?> Management</h2>
 
     <?php if (isset($error)): ?><div class="alert alert-warning"><?php echo $error; ?></div><?php endif; ?>
@@ -370,25 +427,29 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <div class="row">
         <div class="col-md-6">
-            <div class="info-card">
-                <h5><i class="fas fa-info-circle"></i> Club Information</h5>
-                <table class="table table-borderless">
-                    <tr><td width="120"><strong>Club Name:</strong></td><td><?php echo htmlspecialchars($club['clubName'] ?? $club_name); ?></td></tr>
-                    <tr><td><strong>Category:</strong></td><td><?php echo htmlspecialchars($club['clubCategory'] ?? '-'); ?></td></tr>
-                    <tr><td><strong>Status:</strong></td><td><?php echo $club['status'] ?? 'Active'; ?></td></tr>
-                    <?php if ($club['advisorName']): ?>
-                    <tr><td><strong>Advisor:</strong></td><td><?php echo htmlspecialchars($club['advisorName']); ?></td></tr>
-                    <?php endif; ?>
-                    <tr><td><strong>Total Members:</strong></td><td><?php echo $totalMembers; ?></td></tr>
-                </table>
-            </div>
+           <div class="info-card">
+    <h5><i class="fas fa-info-circle"></i> Club Information</h5>
+    <?php if ($club && is_array($club)): ?>
+    <table class="table table-borderless">
+        <tr><td width="120"><strong>Club Name:</strong></td><td><?php echo htmlspecialchars($club['clubName'] ?? $club_name); ?></td></tr>
+        <tr><td><strong>Category:</strong></td><td><?php echo htmlspecialchars($club['clubCategory'] ?? '-'); ?></td></tr>
+        <tr><td><strong>Status:</strong></td><td><?php echo $club['status'] ?? 'Active'; ?></td></tr>
+        <?php if (!empty($club['advisorName'])): ?>
+        <tr><td><strong>Advisor:</strong></td><td><?php echo htmlspecialchars($club['advisorName']); ?></td></tr>
+        <?php endif; ?>
+        <tr><td><strong>Total Members:</strong></td><td><?php echo $totalMembers; ?></td></tr>
+    </table>
+    <?php else: ?>
+    <p class="text-muted">Club information not available. You may not be assigned to any club yet.</p>
+    <?php endif; ?>
+</div>
             
-            <?php if (!empty($club['clubDescription'])): ?>
-                <div class="info-card">
-                    <h5><i class="fas fa-align-left"></i> Description</h5>
-                    <p><?php echo nl2br(htmlspecialchars($club['clubDescription'])); ?></p>
-                </div>
-            <?php endif; ?>
+            <?php if ($club && !empty($club['clubDescription'])): ?>
+    <div class="info-card">
+        <h5><i class="fas fa-align-left"></i> Description</h5>
+        <p><?php echo nl2br(htmlspecialchars($club['clubDescription'])); ?></p>
+    </div>
+<?php endif; ?>
         </div>
         
         <div class="col-md-6">
@@ -486,6 +547,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 </div>
 
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-content">
+        <i class="fas fa-sign-out-alt" style="font-size: 50px; color: #dc3545; margin-bottom: 15px;"></i>
+        <h4>Confirm Logout</h4>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+            <button id="confirmLogout" class="modal-btn-logout">Yes, Logout</button>
+            <button id="cancelLogout" class="modal-btn-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -499,6 +572,26 @@ $current_page = basename($_SERVER['PHP_SELF']);
         document.getElementById('reject_name').innerText = name;
         new bootstrap.Modal(document.getElementById('rejectModal')).show();
     }
+</script>
+
+<script>
+function showLogoutConfirm() {
+    document.getElementById('logoutModal').style.display = 'flex';
+}
+function closeLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'none';
+}
+document.getElementById('confirmLogout').onclick = function() {
+    window.location.href = '../../logout.php';
+};
+document.getElementById('cancelLogout').onclick = function() {
+    closeLogoutModal();
+};
+window.onclick = function(event) {
+    if (event.target == document.getElementById('logoutModal')) {
+        closeLogoutModal();
+    }
+};
 </script>
 </body>
 </html>

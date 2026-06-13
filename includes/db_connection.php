@@ -1,9 +1,10 @@
 <?php
 $host = '127.0.0.1';
-$port = '3306';
 $dbname = 'fk_club_system';
 $username = 'root';
 $password = '';
+$port = '3306';
+
 
 try {
     $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname", $username, $password);

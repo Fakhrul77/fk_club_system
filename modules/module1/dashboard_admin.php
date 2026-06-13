@@ -22,7 +22,7 @@ $recentUsers = $pdo->query("
     FROM users u 
     JOIN user_role r ON u.role_id = r.role_id 
     ORDER BY u.createdAt DESC 
-    LIMIT 5
+    LIMIT 10
 ")->fetchAll();
 
 // ========== DYNAMIC CHART 1: Monthly User Registrations ==========
@@ -210,6 +210,232 @@ $trendData = array_values($trendData);
         .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; cursor: pointer; }
         .logout-btn:hover { background: #c82333; }
         
+        /* ========== MODERN BUTTON STYLES ========== */
+
+/* Manage All Users Button */
+.btn-manage {
+    background: linear-gradient(135deg, var(--umpsa-blue), var(--umpsa-dark-blue));
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-manage:hover {
+    background: linear-gradient(135deg, var(--umpsa-dark-blue), var(--umpsa-blue));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,59,92,0.3);
+    color: white;
+}
+
+.btn-manage i {
+    font-size: 14px;
+}
+
+/* Edit Button */
+.btn-edit-modern {
+    background: #17a2b8;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+}
+
+.btn-edit-modern:hover {
+    background: #138496;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(23,162,184,0.3);
+    color: white;
+}
+
+.btn-edit-modern i {
+    font-size: 12px;
+}
+
+/* View Button */
+.btn-view-modern {
+    background: #28a745;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+}
+
+.btn-view-modern:hover {
+    background: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(40,167,69,0.3);
+    color: white;
+}
+
+/* Delete/Deactivate Button */
+.btn-danger-modern {
+    background: #dc3545;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-danger-modern:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(220,53,69,0.3);
+}
+
+/* Activate Button */
+.btn-success-modern {
+    background: #28a745;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-success-modern:hover {
+    background: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(40,167,69,0.3);
+}
+
+/* Add User Button */
+.btn-add-modern {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-add-modern:hover {
+    background: linear-gradient(135deg, #1e7e34, #155724);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+    color: white;
+}
+
+/* Action Buttons Container */
+.action-buttons-container {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Table Action Icons (for compact view) */
+.action-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin: 0 4px;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    padding: 6px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-icon.edit {
+    color: #17a2b8;
+}
+
+.action-icon.edit:hover {
+    background: rgba(23,162,184,0.1);
+    transform: scale(1.1);
+}
+
+.action-icon.delete {
+    color: #dc3545;
+}
+
+.action-icon.delete:hover {
+    background: rgba(220,53,69,0.1);
+    transform: scale(1.1);
+}
+
+.action-icon.activate {
+    color: #28a745;
+}
+
+.action-icon.activate:hover {
+    background: rgba(40,167,69,0.1);
+    transform: scale(1.1);
+}
+
+.action-icon.deactivate {
+    color: #ffc107;
+}
+
+.action-icon.deactivate:hover {
+    background: rgba(255,193,7,0.1);
+    transform: scale(1.1);
+}
+        .status-active {
+         background: #d4edda;
+         color: #155724;
+         padding: 4px 10px;
+         border-radius: 20px;
+         font-size: 11px;
+         display: inline-block;
+         }
+
+        .status-inactive {
+         background: #f8d7da;
+         color: #721c24;
+         padding: 4px 10px;
+         border-radius: 20px;
+         font-size: 11px;
+         display: inline-block;
+         }
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card {
             background: white;
@@ -238,7 +464,6 @@ $trendData = array_values($trendData);
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 12px; background: #f8f9fa; font-weight: 600; border-bottom: 2px solid #eee; }
         td { padding: 12px; border-bottom: 1px solid #eee; }
-        .status-active { background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
         
         /* Logout Modal */
         .modal-overlay {
@@ -395,37 +620,80 @@ $trendData = array_values($trendData);
         </div>
     </div>
 
-    <!-- Recent Users Table -->
-    <div class="table-card">
-        <h5><i class="fas fa-clock"></i> Recent User Registrations</h5>
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Name</th>
-                        <th>Student ID</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($recentUsers as $user): ?>
-                    <tr>
-                        <td><?php echo date('d/m/Y', strtotime($user['createdAt'] ?? 'now')); ?></td>
-                        <td><?php echo htmlspecialchars($user['name']); ?></td>
-                        <td><?php echo htmlspecialchars($user['studentId'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($user['roleName']); ?></td>
-                        <td><span class="status-active"><?php echo $user['status']; ?></span></td>
-                        <td>
-                            <a href="add_edit_user.php?id=<?php echo $user['user_id']; ?>" class="btn btn-sm btn-outline-primary">Edit</a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+   <!-- Recent Users Table with Search -->
+<div class="table-card">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="mb-0"><i class="fas fa-clock"></i> Recent User Registrations</h5>
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="input-group" style="width: 260px;">
+                <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="searchRecentUsers" class="form-control form-control-sm" 
+                       placeholder="Search by name, email or ID...">
+                <button id="clearRecentSearch" class="btn btn-outline-secondary btn-sm" type="button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <select id="filterRecentRole" class="form-select form-select-sm" style="width: 140px;">
+                <option value="all">All Roles</option>
+                <option value="Administrator">Administrator</option>
+                <option value="Club Committee">Committee</option>
+                <option value="Student">Student</option>
+            </select>
+            <a href="manage_users.php" class="btn-manage">
+    <i class="fas fa-users"></i> Manage All Users
+</a>
         </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table" id="recentUsersTable">
+            <thead>
+                <tr>
+                    <th><i class="fas fa-calendar"></i> Date</th>
+                    <th><i class="fas fa-user"></i> Name</th>
+                    <th><i class="fas fa-id-card"></i> Student ID</th>
+                    <th><i class="fas fa-tag"></i> Role</th>
+                    <th><i class="fas fa-circle"></i> Status</th>
+                    <th><i class="fas fa-cog"></i> Actions</th>
+                </tr>
+            </thead>
+            <tbody id="recentUsersBody">
+                <?php foreach ($recentUsers as $user): ?>
+                <tr class="recent-user-row" 
+                    data-name="<?php echo strtolower(htmlspecialchars($user['name'])); ?>"
+                    data-email="<?php echo strtolower(htmlspecialchars($user['email'])); ?>"
+                    data-id="<?php echo strtolower(htmlspecialchars($user['studentId'] ?? '')); ?>"
+                    data-role="<?php echo htmlspecialchars($user['roleName']); ?>">
+                    <td><?php echo date('d/m/Y', strtotime($user['createdAt'] ?? 'now')); ?></td>
+                    <td><strong><?php echo htmlspecialchars($user['name']); ?></strong></td>
+                    <td><?php echo htmlspecialchars($user['studentId'] ?? '-'); ?></td>
+                    <td>
+                        <span class="badge" style="background: var(--umpsa-light-blue); color: var(--umpsa-blue);">
+                            <?php echo htmlspecialchars($user['roleName']); ?>
+                        </span>
+                    </td>
+                    <td>
+                      <span class="<?php echo $user['status'] == 'Active' ? 'status-active' : 'status-inactive'; ?>">
+                              <?php echo $user['status']; ?>
+                     </span>
+                    </td>
+                    <td>
+                        <a href="add_edit_user.php?id=<?php echo $user['user_id']; ?>" class="btn-edit-modern">
+    <i class="fas fa-edit"></i> Edit
+</a>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    
+    <div id="noRecentResults" class="text-center py-4" style="display: none;">
+        <i class="fas fa-search fa-2x text-muted mb-2 d-block"></i>
+        <p class="text-muted mb-0">No users match your search criteria.</p>
+        <button class="btn btn-sm btn-link" onclick="clearRecentSearch()">
+            <i class="fas fa-undo"></i> Clear Search
+        </button>
     </div>
 </div>
 
@@ -595,6 +863,56 @@ $trendData = array_values($trendData);
             modal.style.display = 'none';
         }
     };
+</script>
+
+<script>
+// Search and Filter for Recent Users Table
+function filterRecentUsers() {
+    const searchTerm = document.getElementById('searchRecentUsers').value.toLowerCase().trim();
+    const roleFilter = document.getElementById('filterRecentRole').value;
+    const rows = document.querySelectorAll('#recentUsersBody .recent-user-row');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const name = row.getAttribute('data-name') || '';
+        const email = row.getAttribute('data-email') || '';
+        const id = row.getAttribute('data-id') || '';
+        const role = row.getAttribute('data-role') || '';
+        
+        const matchesSearch = searchTerm === '' || 
+                             name.includes(searchTerm) || 
+                             email.includes(searchTerm) || 
+                             id.includes(searchTerm);
+        const matchesRole = roleFilter === 'all' || role === roleFilter;
+        
+        if (matchesSearch && matchesRole) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Show/hide no results message
+    const noResultsDiv = document.getElementById('noRecentResults');
+    if (visibleCount === 0 && rows.length > 0) {
+        noResultsDiv.style.display = 'block';
+    } else {
+        noResultsDiv.style.display = 'none';
+    }
+}
+
+// Clear search function
+function clearRecentSearch() {
+    document.getElementById('searchRecentUsers').value = '';
+    document.getElementById('filterRecentRole').value = 'all';
+    filterRecentUsers();
+}
+
+// Event listeners
+document.getElementById('searchRecentUsers').addEventListener('keyup', filterRecentUsers);
+document.getElementById('filterRecentRole').addEventListener('change', filterRecentUsers);
+document.getElementById('clearRecentSearch').addEventListener('click', clearRecentSearch);
 </script>
 </body>
 </html>

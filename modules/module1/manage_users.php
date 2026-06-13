@@ -78,19 +78,123 @@ if (isset($_GET['activate'])) {
 if (isset($_GET['delete_permanent'])) {
     $delete_id = (int)$_GET['delete_permanent'];
     
-    // Remove from related tables first
-    $pdo->prepare("DELETE FROM club_committee WHERE user_id = ?")->execute([$delete_id]);
-    $pdo->prepare("DELETE FROM club_membership WHERE user_id = ?")->execute([$delete_id]);
-    $pdo->prepare("DELETE FROM event_registration WHERE user_id = ?")->execute([$delete_id]);
-    $pdo->prepare("DELETE FROM attendance WHERE user_id = ?")->execute([$delete_id]);
-    $pdo->prepare("DELETE FROM activity_points WHERE user_id = ?")->execute([$delete_id]);
-    
-    // Finally delete the user
-    $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
-    $stmt->execute([$delete_id]);
-    
-    header("Location: manage_users.php?msg=deleted");
-    exit();
+    try {
+        $pdo->beginTransaction();
+        
+        // Get all events this user is on waiting list for
+        $waiting_events = $pdo->prepare("
+            SELECT event_id, waiting_id, position FROM waiting_list WHERE user_id = ?
+        ");
+        $waiting_events->execute([$delete_id]);
+        $user_waiting = $waiting_events->fetchAll();
+        
+        // For each waiting list entry, remove user and promote next
+        foreach ($user_waiting as $waiting) {
+            // Delete user from waiting list
+            $pdo->prepare("DELETE FROM waiting_list WHERE waiting_id = ?")->execute([$waiting['waiting_id']]);
+            
+            // Reorder remaining waiting list positions
+            $pdo->prepare("
+                UPDATE waiting_list 
+                SET position = position - 1 
+                WHERE event_id = ? AND position > ?
+            ")->execute([$waiting['event_id'], $waiting['position']]);
+            
+            // Check if there's a spot available (if event not full)
+            $event_check = $pdo->prepare("
+                SELECT current_participant, max_participant 
+                FROM event WHERE event_id = ?
+            ");
+            $event_check->execute([$waiting['event_id']]);
+            $event = $event_check->fetch();
+            
+            if ($event && $event['current_participant'] < $event['max_participant']) {
+                // Get the next person on waiting list
+                $next_waiting = $pdo->prepare("
+                    SELECT user_id FROM waiting_list 
+                    WHERE event_id = ? 
+                    ORDER BY position ASC 
+                    LIMIT 1
+                ");
+                $next_waiting->execute([$waiting['event_id']]);
+                $next_user = $next_waiting->fetch();
+                
+                if ($next_user) {
+                    // Remove from waiting list
+                    $pdo->prepare("DELETE FROM waiting_list WHERE event_id = ? AND user_id = ?")
+                        ->execute([$waiting['event_id'], $next_user['user_id']]);
+                    
+                    // Add to registration
+                    $pdo->prepare("
+                        INSERT INTO event_registration (user_id, event_id, registration_date, status) 
+                        VALUES (?, ?, NOW(), 'Confirmed')
+                    ")->execute([$next_user['user_id'], $waiting['event_id']]);
+                    
+                    // Update participant count
+                    $pdo->prepare("
+                        UPDATE event SET current_participant = current_participant + 1 
+                        WHERE event_id = ?
+                    ")->execute([$waiting['event_id']]);
+                }
+            }
+        }
+        
+        // Remove from related tables
+        $pdo->prepare("DELETE FROM club_committee WHERE user_id = ?")->execute([$delete_id]);
+        $pdo->prepare("DELETE FROM club_membership WHERE user_id = ?")->execute([$delete_id]);
+        
+        // Cancel registrations and free up spots
+        $registrations = $pdo->prepare("
+            SELECT event_id, registration_id FROM event_registration WHERE user_id = ? AND status = 'Confirmed'
+        ");
+        $registrations->execute([$delete_id]);
+        $user_regs = $registrations->fetchAll();
+        
+        foreach ($user_regs as $reg) {
+            // Cancel registration
+            $pdo->prepare("UPDATE event_registration SET status = 'Cancelled' WHERE registration_id = ?")
+                ->execute([$reg['registration_id']]);
+            
+            // Decrease participant count
+            $pdo->prepare("UPDATE event SET current_participant = current_participant - 1 WHERE event_id = ?")
+                ->execute([$reg['event_id']]);
+            
+            // Promote from waiting list if available
+            $waiting_stmt = $pdo->prepare("
+                SELECT waiting_id, user_id FROM waiting_list 
+                WHERE event_id = ? 
+                ORDER BY position ASC 
+                LIMIT 1
+            ");
+            $waiting_stmt->execute([$reg['event_id']]);
+            $waiting_user = $waiting_stmt->fetch();
+            
+            if ($waiting_user) {
+                $pdo->prepare("DELETE FROM waiting_list WHERE waiting_id = ?")->execute([$waiting_user['waiting_id']]);
+                $pdo->prepare("
+                    INSERT INTO event_registration (user_id, event_id, registration_date, status) 
+                    VALUES (?, ?, NOW(), 'Confirmed')
+                ")->execute([$waiting_user['user_id'], $reg['event_id']]);
+                $pdo->prepare("UPDATE event SET current_participant = current_participant + 1 WHERE event_id = ?")
+                    ->execute([$reg['event_id']]);
+            }
+        }
+        
+        $pdo->prepare("DELETE FROM attendance WHERE user_id = ?")->execute([$delete_id]);
+        $pdo->prepare("DELETE FROM activity_points WHERE user_id = ?")->execute([$delete_id]);
+        
+        // Finally delete the user
+        $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
+        $stmt->execute([$delete_id]);
+        
+        $pdo->commit();
+        header("Location: manage_users.php?msg=deleted");
+        exit();
+    } catch(PDOException $e) {
+        $pdo->rollBack();
+        header("Location: manage_users.php?msg=error");
+        exit();
+    }
 }
 
 // Get all users with role names
@@ -186,7 +290,131 @@ $users = $pdo->query("
         .welcome-text { font-size: 16px; font-weight: 500; }
         .badge-role { background: var(--umpsa-gold); color: var(--umpsa-dark-blue); padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; }
         .logout-btn { background: #dc3545; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; }
-        
+        /* ========== MODERN BUTTON STYLES ========== */
+
+/* Action Buttons Container */
+.action-buttons-container {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Edit Button */
+.btn-edit-modern {
+    background: #17a2b8;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+}
+
+.btn-edit-modern:hover {
+    background: #138496;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(23,162,184,0.3);
+    color: white;
+}
+
+/* Danger Button (Deactivate/Delete) */
+.btn-danger-modern {
+    background: #dc3545;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-danger-modern:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(220,53,69,0.3);
+}
+
+/* Success Button (Activate) */
+.btn-success-modern {
+    background: #28a745;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-success-modern:hover {
+    background: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(40,167,69,0.3);
+}
+
+/* Add User Button */
+.btn-add-modern {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-add-modern:hover {
+    background: linear-gradient(135deg, #1e7e34, #155724);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+    color: white;
+}
+
+/* Manage All Users Button */
+.btn-manage {
+    background: linear-gradient(135deg, #003B5C, #002147);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-manage:hover {
+    background: linear-gradient(135deg, #002147, #001530);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,59,92,0.3);
+    color: white;
+}
         .table-card {
             background: white;
             border-radius: 16px;
@@ -279,7 +507,7 @@ $users = $pdo->query("
     </div>
 </div>
 
-<<div class="sidebar">
+<div class="sidebar">
     <div class="sidebar-header">
         <img src="../../assets/images/logo.png" alt="Logo" style="width: 50px; height: auto; margin-bottom: 10px;">
         <h4>FK Club System</h4>
@@ -333,7 +561,7 @@ $users = $pdo->query("
 <div class="main-content">
     <div class="top-nav">
         <div class="welcome-text"><i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?><span class="badge-role">Administrator</span></div>
-        <a href="../../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="#" class="logout-btn" onclick="showLogoutConfirm()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 
      <?php echo $message; ?>
@@ -342,7 +570,9 @@ $users = $pdo->query("
     <div class="table-card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
             <h3><i class="fas fa-users"></i> Manage Users</h3>
-            <a href="add_edit_user.php" class="btn-add"><i class="fas fa-user-plus"></i> Add New User</a>
+            <a href="add_edit_user.php" class="btn-add-modern">
+    <i class="fas fa-user-plus"></i> Add New User
+</a>
         </div>
         
         <div class="filter-bar">
@@ -362,14 +592,21 @@ $users = $pdo->query("
                 </thead>
                 <tbody>
                     <?php foreach ($users as $user): 
-                        // Get club name for committee members
-                        $club_name = '-';
-                        if ($user['role_id'] == 2) {
-                            $club_stmt = $pdo->prepare("SELECT c.clubName FROM club_committee cc JOIN club c ON cc.club_id = c.club_id WHERE cc.user_id = ?");
-                            $club_stmt->execute([$user['user_id']]);
-                            $club = $club_stmt->fetch();
-                            $club_name = $club ? $club['clubName'] : '-';
-                        }
+    // Get club name based on role
+    $club_name = '-';
+    if ($user['role_id'] == 2) {
+        // Committee members - get from club_committee
+        $club_stmt = $pdo->prepare("SELECT c.clubName FROM club_committee cc JOIN club c ON cc.club_id = c.club_id WHERE cc.user_id = ?");
+        $club_stmt->execute([$user['user_id']]);
+        $club = $club_stmt->fetch();
+        $club_name = $club ? $club['clubName'] : '-';
+    } elseif ($user['role_id'] == 3) {
+        // Students - get from club_membership
+        $club_stmt = $pdo->prepare("SELECT c.clubName FROM club_membership cm JOIN club c ON cm.club_id = c.club_id WHERE cm.user_id = ? AND cm.status = 'Active'");
+        $club_stmt->execute([$user['user_id']]);
+        $club = $club_stmt->fetch();
+        $club_name = $club ? $club['clubName'] : '-';
+    }
                     ?>
                     <tr class="user-row" 
                         data-role="<?php echo htmlspecialchars($user['roleName']); ?>" 
@@ -382,22 +619,26 @@ $users = $pdo->query("
                         <td><?php echo htmlspecialchars($user['roleName']); ?></td>
                         <td><?php echo $club_name; ?></td>
                         <td><span class="<?php echo $user['status'] == 'Active' ? 'status-active' : 'status-inactive'; ?>"><?php echo $user['status']; ?></span></td>
-                        <td>
-                            <a href="add_edit_user.php?id=<?php echo $user['user_id']; ?>" class="action-btn" title="Edit User"><i class="fas fa-edit"></i></a>
-                            
-                            <?php if ($user['status'] == 'Active'): ?>
-                                <button class="action-btn action-btn-delete" onclick="showDeactivateModal(<?php echo $user['user_id']; ?>, '<?php echo htmlspecialchars($user['name']); ?>')" title="Deactivate User">
-                                    <i class="fas fa-user-slash"></i>
-                                </button>
-                            <?php else: ?>
-                                <a href="?activate=<?php echo $user['user_id']; ?>" class="action-btn action-btn-activate" title="Activate User">
-                                    <i class="fas fa-user-check"></i>
-                                </a>
-                                <button class="action-btn action-btn-delete" onclick="showDeleteModal(<?php echo $user['user_id']; ?>, '<?php echo htmlspecialchars($user['name']); ?>')" title="Permanently Delete">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            <?php endif; ?>
-                        </td>
+                        <td class="action-buttons-container">
+    <?php if ($user['status'] == 'Active'): ?>
+        <a href="add_edit_user.php?id=<?php echo $user['user_id']; ?>" class="btn-edit-modern" title="Edit User">
+            <i class="fas fa-edit"></i> Edit
+        </a>
+        <button class="btn-danger-modern" onclick="showDeactivateModal(<?php echo $user['user_id']; ?>, '<?php echo htmlspecialchars($user['name']); ?>')" title="Deactivate User">
+            <i class="fas fa-user-slash"></i> Deactivate
+        </button>
+    <?php else: ?>
+        <a href="add_edit_user.php?id=<?php echo $user['user_id']; ?>" class="btn-edit-modern" title="Edit User">
+            <i class="fas fa-edit"></i> Edit
+        </a>
+        <a href="?activate=<?php echo $user['user_id']; ?>" class="btn-success-modern" title="Activate User">
+            <i class="fas fa-user-check"></i> Activate
+        </a>
+        <button class="btn-danger-modern" onclick="showDeleteModal(<?php echo $user['user_id']; ?>, '<?php echo htmlspecialchars($user['name']); ?>')" title="Delete Permanently">
+            <i class="fas fa-trash-alt"></i> Delete
+        </button>
+    <?php endif; ?>
+</td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -405,6 +646,8 @@ $users = $pdo->query("
         </div>
     </div>
 </div>
+
+<?php include_once '../../includes/logout_modal.php'; ?>
 
 <script>
     // Deactivation Modal Variables

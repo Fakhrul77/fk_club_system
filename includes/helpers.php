@@ -9,31 +9,35 @@
 class PointsCalculator {
     private $pdo;
 
-    private $points_map = [
-        'General Event' => 5,
-        'Workshop'      => 10,
-        'Seminar'       => 8,
-        'Competition'   => 15,
-        'Volunteer'     => 12,
-        'Leadership'    => 20,
-        'Organizing'    => 25,
-        'Default'       => 5,
-    ];
-
     public function __construct($pdo) {
         $this->pdo = $pdo;
     }
 
-    public function calculateAttendancePoints($user_id, $event_id) {
-        $stmt = $this->pdo->prepare("SELECT eventCategory FROM event WHERE event_id = ?");
-        $stmt->execute([$event_id]);
-        $event = $stmt->fetch();
-        if (!$event) return 0;
-
-        $cat = $event['eventCategory'] ?? 'Default';
-        return $this->points_map[$cat] ?? $this->points_map['Default'];
+    /**
+     * Calculate points based on attendance status ONLY
+     * Present on time = +10 points
+     * Late arrival = +5 points
+     * Volunteer/Helper = +5 points
+     * Absent = -10 points
+     */
+    public function calculatePointsByStatus($attendance_status) {
+        switch ($attendance_status) {
+            case 'Present':
+                return 10;
+            case 'Late':
+                return 5;
+            case 'Volunteer':
+                return 5;
+            case 'Absent':
+                return -10;
+            default:
+                return 0;
+        }
     }
 
+    /**
+     * Get total points for a student
+     */
     public function getTotalPoints($user_id) {
         $stmt = $this->pdo->prepare(
             "SELECT COALESCE(SUM(pointsEarned), 0) AS total FROM activity_points WHERE user_id = ?"
@@ -42,31 +46,35 @@ class PointsCalculator {
         return (int)$stmt->fetchColumn();
     }
 
+    /**
+     * Record points for a student (UPDATE if exists, INSERT if not)
+     */
     public function recordPoints($user_id, $event_id, $points) {
-        // FIXED: Using UPDATE then INSERT approach (no need for point_id/points_id)
-        try {
-            // Try to update existing record first
+        // Check if points already recorded for this event
+        $stmt = $this->pdo->prepare(
+            "SELECT points_id FROM activity_points WHERE user_id = ? AND event_id = ?"
+        );
+        $stmt->execute([$user_id, $event_id]);
+        $existing = $stmt->fetch();
+
+        if ($existing) {
+            // Update existing record
             $stmt = $this->pdo->prepare(
-                "UPDATE activity_points SET pointsEarned = ?, awardedDate = NOW() 
-                 WHERE user_id = ? AND event_id = ?"
+                "UPDATE activity_points SET pointsEarned = ?, awardedDate = NOW() WHERE user_id = ? AND event_id = ?"
             );
-            $stmt->execute([$points, $user_id, $event_id]);
-            
-            // If no rows were updated, insert new record
-            if ($stmt->rowCount() == 0) {
-                $stmt = $this->pdo->prepare(
-                    "INSERT INTO activity_points (user_id, event_id, pointsEarned, awardedDate) 
-                     VALUES (?, ?, ?, NOW())"
-                );
-                return $stmt->execute([$user_id, $event_id, $points]);
-            }
-            return true;
-        } catch (PDOException $e) {
-            error_log("Points recording error: " . $e->getMessage());
-            return false;
+            return $stmt->execute([$points, $user_id, $event_id]);
+        } else {
+            // Insert new record
+            $stmt = $this->pdo->prepare(
+                "INSERT INTO activity_points (user_id, event_id, pointsEarned, awardedDate) VALUES (?, ?, ?, NOW())"
+            );
+            return $stmt->execute([$user_id, $event_id, $points]);
         }
     }
 
+    /**
+     * Remove points for a student (when attendance is deleted)
+     */
     public function removePoints($user_id, $event_id) {
         $stmt = $this->pdo->prepare(
             "DELETE FROM activity_points WHERE user_id = ? AND event_id = ?"
@@ -74,23 +82,13 @@ class PointsCalculator {
         $stmt->execute([$user_id, $event_id]);
     }
 
-    public function recalculateStudentPoints($user_id) {
-        $stmt = $this->pdo->prepare(
-            "SELECT DISTINCT a.event_id"
-          . " FROM attendance a"
-          . " JOIN event_registration er ON a.registration_id = er.registration_id"
-          . " WHERE er.user_id = ? AND a.attendanceStatus = 'Present'"
-        );
-        $stmt->execute([$user_id]);
-        $events = $stmt->fetchAll();
-
-        $total = 0;
-        foreach ($events as $ev) {
-            $pts = $this->calculateAttendancePoints($user_id, $ev['event_id']);
-            $this->recordPoints($user_id, $ev['event_id'], $pts);
-            $total += $pts;
-        }
-        return $total;
+    /**
+     * Calculate and record points based on attendance status
+     */
+    public function processAttendancePoints($user_id, $event_id, $attendance_status) {
+        $points = $this->calculatePointsByStatus($attendance_status);
+        $this->recordPoints($user_id, $event_id, $points);
+        return $points;
     }
 }
 
@@ -98,9 +96,10 @@ class RecognitionLevelDeterminer {
     private $pdo;
 
     private $levels = [
-        ['name' => 'Bronze', 'min' => 0,   'max' => 49],
-        ['name' => 'Silver', 'min' => 50,  'max' => 99],
-        ['name' => 'Gold',   'min' => 100, 'max' => 999999],
+        ['name' => 'Warning', 'min' => 0,   'max' => 19],
+        ['name' => 'Certificate Eligible', 'min' => 20,  'max' => 49],
+        ['name' => 'Active Student Award', 'min' => 50,  'max' => 79],
+        ['name' => 'Outstanding Participant', 'min' => 80, 'max' => 999999],
     ];
 
     public function __construct($pdo) {
@@ -108,14 +107,14 @@ class RecognitionLevelDeterminer {
     }
 
     public function determineLevel($total_points) {
-        $result = ['name' => 'Bronze', 'min_points' => 0, 'max_points' => 49, 'is_maximum' => false];
+        $result = ['name' => 'Warning', 'min_points' => 0, 'max_points' => 19, 'is_maximum' => false];
         foreach ($this->levels as $level) {
             if ($total_points >= $level['min'] && $total_points <= $level['max']) {
                 $result = [
                     'name'       => $level['name'],
                     'min_points' => $level['min'],
                     'max_points' => $level['max'],
-                    'is_maximum' => ($level['name'] === 'Gold'),
+                    'is_maximum' => ($level['name'] === 'Outstanding Participant'),
                 ];
             }
         }
@@ -123,18 +122,15 @@ class RecognitionLevelDeterminer {
     }
 
     public function getStudentRecognitionLevel($user_id) {
-        $stmt = $this->pdo->prepare(
-            "SELECT COALESCE(SUM(pointsEarned), 0) AS total FROM activity_points WHERE user_id = ?"
-        );
-        $stmt->execute([$user_id]);
-        $total = (int)$stmt->fetchColumn();
+        $calculator = new PointsCalculator($this->pdo);
+        $total = $calculator->getTotalPoints($user_id);
         return $this->determineLevel($total);
     }
 
     public function updateRecognitionLevel($user_id, $total_points) {
         $level = $this->determineLevel($total_points);
         try {
-            // Check if recognition_level column exists in users table
+            // Check if recognition_level column exists
             $stmt = $this->pdo->prepare("SHOW COLUMNS FROM users LIKE 'recognition_level'");
             $stmt->execute();
             $column_exists = $stmt->fetch();
@@ -172,8 +168,8 @@ class QRCodeGenerator {
         $this->pdo = $pdo;
     }
 
-    public function generateQRData($registration_id, $event_id, $matrix_number) {
-        return $registration_id . '|' . $event_id . '|' . $matrix_number;
+    public function generateQRData($registration_id, $event_id, $student_id) {
+        return $registration_id . '|' . $event_id . '|' . $student_id;
     }
 
     public function validateQRCode($qr_data) {
@@ -183,7 +179,7 @@ class QRCodeGenerator {
             return ['valid' => false, 'error' => 'Invalid QR code format'];
         }
 
-        [$registration_id, $event_id, $matrix_number] = $parts;
+        [$registration_id, $event_id, $student_id] = $parts;
 
         if (!is_numeric($registration_id) || !is_numeric($event_id)) {
             return ['valid' => false, 'error' => 'Invalid QR code data'];
@@ -212,7 +208,7 @@ class QRCodeGenerator {
             'valid'           => true,
             'registration_id' => (int)$registration_id,
             'event_id'        => (int)$event_id,
-            'matrix_number'   => $matrix_number,
+            'student_id'      => $student_id,
         ];
     }
 }
